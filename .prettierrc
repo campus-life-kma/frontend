@@ -3,5 +3,8 @@
   "trailingComma": "es5",
   "singleQuote": true,
   "tabWidth": 2,
-  "endOfLine": "auto"
+  "endOfLine": "auto",
+  "bracketSpacing": true,
+  "arrowParens": "always",
+  "plugins": ["prettier-plugin-tailwindcss"]
 }

@@ -8,6 +8,7 @@ import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended'
 
 export default defineConfig([
   globalIgnores(['dist']),
+  eslintPluginPrettierRecommended,
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -31,5 +32,4 @@ export default defineConfig([
       ],
     },
   },
-  eslintPluginPrettierRecommended,
 ]);
