@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import axios from 'axios';
@@ -47,7 +47,7 @@ export default function LoginPage() {
     }
   }
 
-  async function handleDevLogin(event: FormEvent<HTMLFormElement>) {
+  async function handleDevLogin(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setEmailLoading(true);
