@@ -48,9 +48,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     if (msalInstance.getAllAccounts().length > 0) {
       try {
-        await msalInstance.logoutPopup();
+        await msalInstance.clearCache();
       } catch {
-        // popup blocked or cancelled — clear local state anyway
+        // ignore — drop local state regardless
       }
     }
     localStorage.removeItem(REFRESH_STORAGE_KEY);
