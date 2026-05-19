@@ -2,6 +2,18 @@ import { create } from 'zustand';
 import type { User } from '../types/auth';
 
 const REFRESH_STORAGE_KEY = 'campus_refresh_token';
+const USER_STORAGE_KEY = 'campus_user';
+
+function loadPersistedUser(): User | null {
+  const raw = localStorage.getItem(USER_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as User;
+  } catch {
+    localStorage.removeItem(USER_STORAGE_KEY);
+    return null;
+  }
+}
 
 interface AuthState {
   accessToken: string | null;
@@ -19,14 +31,16 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
-  user: null,
+  user: loadPersistedUser(),
   setSession: ({ accessToken, refreshToken, user }) => {
     localStorage.setItem(REFRESH_STORAGE_KEY, refreshToken);
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
     set({ accessToken, user });
   },
   setAccessToken: (accessToken) => set({ accessToken }),
   clearSession: () => {
     localStorage.removeItem(REFRESH_STORAGE_KEY);
+    localStorage.removeItem(USER_STORAGE_KEY);
     set({ accessToken: null, user: null });
   },
   getRefreshToken: () => localStorage.getItem(REFRESH_STORAGE_KEY),
