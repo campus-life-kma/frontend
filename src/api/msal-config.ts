@@ -24,4 +24,5 @@ export const msalInstance = new PublicClientApplication(msalConfig);
 
 export const msalLoginRequest: PopupRequest = {
   scopes: ['User.Read'],
+  prompt: 'select_account',
 };
