@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { User } from '../types/auth';
+import { msalInstance } from '../api/msal-config';
 
 const REFRESH_STORAGE_KEY = 'campus_refresh_token';
 const USER_STORAGE_KEY = 'campus_user';
@@ -25,6 +26,7 @@ interface AuthState {
   }) => void;
   setAccessToken: (accessToken: string) => void;
   clearSession: () => void;
+  logout: () => Promise<void>;
   getRefreshToken: () => string | null;
   setRefreshToken: (token: string) => void;
 }
@@ -39,6 +41,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   setAccessToken: (accessToken) => set({ accessToken }),
   clearSession: () => {
+    localStorage.removeItem(REFRESH_STORAGE_KEY);
+    localStorage.removeItem(USER_STORAGE_KEY);
+    set({ accessToken: null, user: null });
+  },
+  logout: async () => {
+    if (msalInstance.getAllAccounts().length > 0) {
+      try {
+        await msalInstance.logoutPopup();
+      } catch {
+        // popup blocked or cancelled — clear local state anyway
+      }
+    }
     localStorage.removeItem(REFRESH_STORAGE_KEY);
     localStorage.removeItem(USER_STORAGE_KEY);
     set({ accessToken: null, user: null });

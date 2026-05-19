@@ -2,7 +2,7 @@ import { useAuthStore } from '../store/authStore';
 
 export default function HomePage() {
   const user = useAuthStore((state) => state.user);
-  const clearSession = useAuthStore((state) => state.clearSession);
+  const logout = useAuthStore((state) => state.logout);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-4">
@@ -30,7 +30,7 @@ export default function HomePage() {
         </dl>
         <button
           type="button"
-          onClick={clearSession}
+          onClick={logout}
           className="mt-6 w-full rounded-md bg-gray-900 px-4 py-2 font-medium text-white transition hover:bg-gray-800"
         >
           Вийти
