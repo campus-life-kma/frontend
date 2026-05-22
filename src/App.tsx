@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
-import HomePage from './pages/HomePage';
+import MapPage from './pages/MapPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -13,7 +13,7 @@ function App() {
         path="/"
         element={
           <ProtectedRoute>
-            <HomePage />
+            <MapPage />
           </ProtectedRoute>
         }
       />
