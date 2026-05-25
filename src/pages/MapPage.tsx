@@ -4,7 +4,9 @@ import { useAuthStore } from '../store/authStore';
 import { getFloorMapData, getFloors } from '../api/locations';
 import type { RoomOnMap } from '../types/locations';
 import FloorMap from '../components/FloorMap';
-import RoomDetailsPanel from '../components/RoomDetailsPanel';
+import FloorRail from '../components/FloorRail';
+import ProfileMenu from '../components/ProfileMenu';
+import RoomDetailsModal from '../components/RoomDetailsModal';
 
 function toNumberOrNull(value: string | null | undefined): number | null {
   if (value === null || value === undefined || value === '') return null;
@@ -40,51 +42,34 @@ export default function MapPage() {
   const selectedRoom: RoomOnMap | null =
     mapQuery.data?.rooms.find((room) => room.id === selectedRoomId) ?? null;
 
-  const handleRoomClick = (room: RoomOnMap) => setSelectedRoomId(room.id);
+  const handleFloorSelect = (floorId: number) => {
+    setPickedFloorId(floorId);
+    setSelectedRoomId(null);
+  };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex h-screen flex-col bg-gray-50">
       <header
         className={
-          'flex items-center justify-between border-b border-gray-200 ' +
-          'bg-white px-6 py-3'
+          'flex h-14 items-center justify-between border-b border-gray-200 ' +
+          'bg-white px-6'
         }
       >
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-gray-900">
-            {mapQuery.data?.dormitory_name ?? 'Campus Life'}
-          </h1>
-          {floorsQuery.data && floorsQuery.data.length > 0 && (
-            <select
-              value={effectiveFloorId ?? ''}
-              onChange={(event) => {
-                setPickedFloorId(Number(event.target.value));
-                setSelectedRoomId(null);
-              }}
-              className="rounded border border-gray-300 px-2 py-1 text-sm"
-            >
-              {floorsQuery.data.map((floor) => (
-                <option key={floor.id} value={floor.id}>
-                  Поверх {floor.number}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={logout}
-          className={
-            'rounded bg-gray-900 px-3 py-1 text-sm font-medium text-white ' +
-            'hover:bg-gray-800'
-          }
-        >
-          Вийти
-        </button>
+        <h1 className="text-lg font-semibold text-gray-900">
+          {mapQuery.data?.dormitory_name ?? 'Campus Life'}
+        </h1>
+        {user && <ProfileMenu user={user} onLogout={logout} />}
       </header>
 
-      <main className="grid flex-1 grid-cols-[1fr_320px] gap-4 p-4">
-        <section className="rounded-xl bg-white p-4 shadow-sm">
+      <div className="flex flex-1 overflow-hidden">
+        {floorsQuery.data && (
+          <FloorRail
+            floors={floorsQuery.data}
+            selectedFloorId={effectiveFloorId}
+            onSelect={handleFloorSelect}
+          />
+        )}
+        <main className="flex flex-1 items-center justify-center overflow-auto p-6">
           {mapQuery.isLoading && (
             <p className="text-sm text-gray-500">Завантажуємо…</p>
           )}
@@ -94,34 +79,17 @@ export default function MapPage() {
           {mapQuery.data && (
             <FloorMap
               data={mapQuery.data}
-              onRoomClick={handleRoomClick}
+              onRoomClick={(room) => setSelectedRoomId(room.id)}
               selectedRoomId={selectedRoomId}
             />
           )}
-        </section>
+        </main>
+      </div>
 
-        <aside className="flex flex-col gap-4 rounded-xl bg-white p-4 shadow-sm">
-          {mapQuery.data && mapQuery.data.active_floor_events.length > 0 && (
-            <section className="border-b border-gray-100 pb-4">
-              <h2 className="mb-2 text-sm font-medium text-gray-700">
-                Події на поверсі
-              </h2>
-              <ul className="flex flex-col gap-2 text-sm">
-                {mapQuery.data.active_floor_events.map((event) => (
-                  <li key={event.id} className="rounded bg-gray-50 p-2">
-                    <p className="font-medium">{event.title}</p>
-                    <p className="text-xs text-gray-500">
-                      {event.creator.display_name} · {event.participants_count}{' '}
-                      учасник(ів)
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          <RoomDetailsPanel room={selectedRoom} />
-        </aside>
-      </main>
+      <RoomDetailsModal
+        room={selectedRoom}
+        onClose={() => setSelectedRoomId(null)}
+      />
     </div>
   );
 }
