@@ -32,6 +32,10 @@ const USER_GAP = 4;
 const MAX_USER_CIRCLES = 6;
 const RESOURCE_SIZE = 18;
 const RESOURCE_GAP = 6;
+const ROOM_PAD_X = 6;
+const LABEL_TOP_GAP = 14;
+const LABEL_FONT_MAX = 13;
+const LABEL_FONT_MIN = 8;
 
 function fillFor(room: RoomOnMap): string {
   if (room.is_blocked) return BLOCKED_COLOR;
@@ -174,58 +178,134 @@ function buildResourceNode(
   return wrapper;
 }
 
+function findTopEdgeY(
+  el: SVGGeometryElement,
+  cx: number,
+  bbox: DOMRect
+): number {
+  const centerY = bbox.y + bbox.height / 2;
+  if (!el.isPointInFill({ x: cx, y: centerY })) {
+    return bbox.y;
+  }
+
+  let lo = bbox.y;
+  let hi = centerY;
+  for (let i = 0; i < 24 && hi - lo > 0.5; i++) {
+    const mid = (lo + hi) / 2;
+    if (el.isPointInFill({ x: cx, y: mid })) {
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+
+  return hi;
+}
+
+function fitRoomLabel(
+  name: string,
+  maxWidth: number,
+  overlayGroup: SVGGElement
+): { node: SVGTextElement; fontSize: number } {
+  const label = document.createElementNS(SVG_NS, 'text');
+  label.setAttribute('text-anchor', 'middle');
+  label.setAttribute('font-weight', '600');
+  label.setAttribute('fill', '#1f2937');
+  label.style.pointerEvents = 'none';
+  label.textContent = name;
+
+  let fontSize = LABEL_FONT_MAX;
+  label.setAttribute('font-size', String(fontSize));
+  overlayGroup.appendChild(label);
+
+  let textWidth = label.getComputedTextLength();
+  if (textWidth > maxWidth && textWidth > 0) {
+    const shrunkSize = Math.floor((LABEL_FONT_MAX * maxWidth) / textWidth);
+    fontSize = Math.max(LABEL_FONT_MIN, shrunkSize);
+    label.setAttribute('font-size', String(fontSize));
+    textWidth = label.getComputedTextLength();
+
+    if (textWidth > maxWidth && name.length > 1) {
+      let trimmed = name;
+      while (textWidth > maxWidth && trimmed.length > 1) {
+        trimmed = trimmed.slice(0, -1);
+        label.textContent = `${trimmed}…`;
+        textWidth = label.getComputedTextLength();
+      }
+    }
+  }
+
+  return { node: label, fontSize };
+}
+
 function renderRoomOverlay(
   room: RoomOnMap,
+  el: SVGGeometryElement,
   bbox: DOMRect,
   defs: SVGDefsElement,
   overlayGroup: SVGGElement
 ) {
   const cx = bbox.x + bbox.width / 2;
-  const top = bbox.y + 18;
+  const maxWidth = Math.max(20, bbox.width - ROOM_PAD_X * 2);
+  const topY = findTopEdgeY(el, cx, bbox);
 
-  const label = document.createElementNS(SVG_NS, 'text');
-  label.textContent = room.name;
+  const { node: label, fontSize } = fitRoomLabel(
+    room.name,
+    maxWidth,
+    overlayGroup
+  );
+  const labelBaseline = topY + LABEL_TOP_GAP + fontSize;
   label.setAttribute('x', String(cx));
-  label.setAttribute('y', String(top));
-  label.setAttribute('text-anchor', 'middle');
-  label.setAttribute('font-size', '13');
-  label.setAttribute('font-weight', '600');
-  label.setAttribute('fill', '#1f2937');
-  label.style.pointerEvents = 'none';
-  overlayGroup.appendChild(label);
+  label.setAttribute('y', String(labelBaseline));
 
-  const visibleUsers = room.current_users.slice(0, MAX_USER_CIRCLES);
+  const userSlotWidth = USER_RADIUS * 2 + USER_GAP;
+  const maxUserSlots = Math.max(
+    0,
+    Math.floor((maxWidth + USER_GAP) / userSlotWidth)
+  );
+  const userCap = Math.min(MAX_USER_CIRCLES, maxUserSlots);
+  const needsOverflow = room.current_users.length > userCap;
+  const visibleUsers = room.current_users.slice(
+    0,
+    needsOverflow ? Math.max(0, userCap - 1) : userCap
+  );
   const overflow = room.current_users.length - visibleUsers.length;
   const slotsUsed = visibleUsers.length + (overflow > 0 ? 1 : 0);
 
   if (slotsUsed > 0) {
-    const slotWidth = USER_RADIUS * 2 + USER_GAP;
-    const rowWidth = slotsUsed * slotWidth - USER_GAP;
+    const rowWidth = slotsUsed * userSlotWidth - USER_GAP;
     const startX = cx - rowWidth / 2 + USER_RADIUS;
-    const rowY = top + 20;
+    const rowY = labelBaseline + USER_RADIUS + 6;
 
     visibleUsers.forEach((user, index) => {
-      const ux = startX + index * slotWidth;
+      const ux = startX + index * userSlotWidth;
       const node = buildUserNode(user, ux, rowY, defs, `${room.id}-${user.id}`);
       overlayGroup.appendChild(node);
     });
 
     if (overflow > 0) {
-      const ox = startX + visibleUsers.length * slotWidth;
+      const ox = startX + visibleUsers.length * userSlotWidth;
       overlayGroup.appendChild(buildOverflowNode(overflow, ox, rowY));
     }
   }
 
   if (room.resources.length > 0) {
-    const resourceY = top + 20 + (slotsUsed > 0 ? USER_RADIUS * 2 + 6 : 0);
-    const slotWidth = RESOURCE_SIZE + RESOURCE_GAP;
-    const visible = room.resources.slice(0, 5);
-    const rowWidth = visible.length * slotWidth - RESOURCE_GAP;
-    const startX = cx - rowWidth / 2 + RESOURCE_SIZE / 2;
-    visible.forEach((resource, index) => {
-      const rx = startX + index * slotWidth;
-      overlayGroup.appendChild(buildResourceNode(resource, rx, resourceY));
-    });
+    const resourceSlotWidth = RESOURCE_SIZE + RESOURCE_GAP;
+    const maxResSlots = Math.max(
+      0,
+      Math.floor((maxWidth + RESOURCE_GAP) / resourceSlotWidth)
+    );
+    const resCap = Math.min(5, maxResSlots);
+    if (resCap > 0) {
+      const visible = room.resources.slice(0, resCap);
+      const rowY = labelBaseline + (slotsUsed > 0 ? USER_RADIUS * 2 + 12 : 8);
+      const rowWidth = visible.length * resourceSlotWidth - RESOURCE_GAP;
+      const startX = cx - rowWidth / 2 + RESOURCE_SIZE / 2;
+      visible.forEach((resource, index) => {
+        const rx = startX + index * resourceSlotWidth;
+        overlayGroup.appendChild(buildResourceNode(resource, rx, rowY));
+      });
+    }
   }
 }
 
@@ -261,11 +341,12 @@ export default function FloorMap({
     const overlayGroup = document.createElementNS(SVG_NS, 'g') as SVGGElement;
     overlayGroup.classList.add(OVERLAY_CLASS);
     overlayGroup.style.pointerEvents = 'none';
+    svg.appendChild(overlayGroup);
 
     const cleanups: Array<() => void> = [];
 
     for (const room of data.rooms) {
-      const el = container.querySelector<SVGGraphicsElement>(
+      const el = container.querySelector<SVGGeometryElement>(
         `#${CSS.escape(room.svg_element_id)}`
       );
       if (!el) continue;
@@ -298,10 +379,8 @@ export default function FloorMap({
         continue;
       }
       if (bbox.width === 0 || bbox.height === 0) continue;
-      renderRoomOverlay(room, bbox, defs as SVGDefsElement, overlayGroup);
+      renderRoomOverlay(room, el, bbox, defs as SVGDefsElement, overlayGroup);
     }
-
-    svg.appendChild(overlayGroup);
 
     return () => {
       for (const cleanup of cleanups) cleanup();
