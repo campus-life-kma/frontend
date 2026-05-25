@@ -19,7 +19,6 @@ const BLOCKED_COLOR = '#f3b9b9';
 const DEFAULT_FILL = '#e5e7eb';
 const DEFAULT_STROKE = '#3A4A6B';
 const SELECTED_STROKE = '#1d4ed8';
-const FALLBACK_SVG_URL = '/map.svg';
 
 function fillFor(room: RoomOnMap): string {
   if (room.is_blocked) return BLOCKED_COLOR;
@@ -38,11 +37,11 @@ export default function FloorMap({
   selectedRoomId,
 }: FloorMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const svgUrl = data.map_file ?? FALLBACK_SVG_URL;
 
   const svgQuery = useQuery({
-    queryKey: ['svg', svgUrl],
-    queryFn: () => fetchSvg(svgUrl),
+    queryKey: ['svg', data.map_file],
+    queryFn: () => fetchSvg(data.map_file!),
+    enabled: !!data.map_file,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -76,6 +75,13 @@ export default function FloorMap({
     };
   }, [data.rooms, svgQuery.data, selectedRoomId, onRoomClick]);
 
+  if (!data.map_file) {
+    return (
+      <p className="text-sm text-gray-500">
+        Для цього поверху мапа недоступна.
+      </p>
+    );
+  }
   if (svgQuery.isError) {
     return (
       <p className="text-sm text-red-700">
