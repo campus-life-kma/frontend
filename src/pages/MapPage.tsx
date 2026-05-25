@@ -37,6 +37,7 @@ export default function MapPage() {
     queryKey: ['floor-map', effectiveFloorId],
     queryFn: () => getFloorMapData(effectiveFloorId!),
     enabled: effectiveFloorId !== null,
+    refetchInterval: 2 * 60 * 1000,
   });
 
   const selectedRoom: RoomOnMap | null =
