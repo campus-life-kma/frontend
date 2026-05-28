@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch';
 import type {
   FloorMapData,
   ResourceOnMap,
@@ -406,11 +407,75 @@ export default function FloorMap({
     return <p className="text-sm text-gray-500">Завантажуємо мапу…</p>;
   }
   return (
-    <div
-      ref={containerRef}
-      className="[&_svg]:h-auto [&_svg]:max-h-[75vh] [&_svg]:w-full"
-      dangerouslySetInnerHTML={{ __html: svgQuery.data }}
-    />
+    <TransformWrapper
+      minScale={0.5}
+      maxScale={4}
+      initialScale={1}
+      centerOnInit
+      limitToBounds={false}
+      smooth={false}
+      doubleClick={{ disabled: true }}
+      wheel={{ step: 0.1 }}
+      pinch={{ step: 5 }}
+    >
+      {({ zoomIn, zoomOut, resetTransform }) => (
+        <div className="relative h-full w-full overflow-hidden">
+          <TransformComponent
+            wrapperClass="!h-full !w-full"
+            contentClass="!h-full !w-full flex items-center justify-center"
+          >
+            <div
+              ref={containerRef}
+              className={
+                '[&_svg]:h-auto [&_svg]:max-h-[80vh] ' +
+                '[&_svg]:w-auto [&_svg]:max-w-full'
+              }
+              dangerouslySetInnerHTML={{ __html: svgQuery.data }}
+            />
+          </TransformComponent>
+          <div
+            className={
+              'pointer-events-auto absolute right-3 bottom-3 z-10 ' +
+              'flex flex-col gap-1 rounded-md bg-white/90 p-1 shadow'
+            }
+          >
+            <button
+              type="button"
+              aria-label="Збільшити"
+              onClick={() => zoomIn()}
+              className={
+                'flex h-8 w-8 items-center justify-center rounded ' +
+                'text-lg font-semibold text-gray-700 hover:bg-gray-100'
+              }
+            >
+              +
+            </button>
+            <button
+              type="button"
+              aria-label="Зменшити"
+              onClick={() => zoomOut()}
+              className={
+                'flex h-8 w-8 items-center justify-center rounded ' +
+                'text-lg font-semibold text-gray-700 hover:bg-gray-100'
+              }
+            >
+              −
+            </button>
+            <button
+              type="button"
+              aria-label="Скинути"
+              onClick={() => resetTransform()}
+              className={
+                'flex h-8 w-8 items-center justify-center rounded ' +
+                'text-sm font-semibold text-gray-700 hover:bg-gray-100'
+              }
+            >
+              ⟲
+            </button>
+          </div>
+        </div>
+      )}
+    </TransformWrapper>
   );
 }
 
