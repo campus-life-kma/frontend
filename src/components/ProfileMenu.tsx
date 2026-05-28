@@ -1,17 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { User } from '../types/auth';
+import UserAvatar from './UserAvatar';
 
 interface ProfileMenuProps {
   user: User;
   onLogout: () => void;
-}
-
-function initialsOf(fullName: string | null): string {
-  if (!fullName) return '?';
-  const parts = fullName.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? '';
-  const second = parts[1]?.[0] ?? '';
-  return (first + second).toUpperCase();
 }
 
 export default function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
@@ -33,43 +26,40 @@ export default function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
   }, [open]);
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} id="profile-menu" className="relative">
       <button
+        id="profile-menu-button"
         type="button"
         onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="menu"
+        aria-expanded={open}
         className={
-          'flex items-center gap-2 rounded-full border border-gray-200 ' +
+          'flex items-center gap-2 rounded-md border border-gray-200 ' +
           'bg-white px-2 py-1 pr-3 transition hover:bg-gray-50'
         }
       >
-        {user.photo ? (
-          <img
-            src={user.photo}
-            alt=""
-            className="h-8 w-8 rounded-full object-cover"
-          />
-        ) : (
-          <span
-            className={
-              'flex h-8 w-8 items-center justify-center rounded-full ' +
-              'bg-blue-100 text-xs font-semibold text-blue-700'
-            }
-          >
-            {initialsOf(user.full_name)}
-          </span>
-        )}
+        <UserAvatar
+          id="profile-menu-avatar"
+          name={user.full_name ?? user.email}
+          photo={user.photo}
+          size={32}
+          rounded="md"
+        />
         <span className="text-sm font-medium text-gray-800">
           {user.full_name ?? user.email}
         </span>
       </button>
       {open && (
         <div
+          id="profile-menu-dropdown"
+          role="menu"
           className={
             'absolute right-0 z-20 mt-2 w-44 overflow-hidden rounded-lg ' +
             'border border-gray-200 bg-white shadow-lg'
           }
         >
           <button
+            id="profile-menu-logout"
             type="button"
             onClick={() => {
               setOpen(false);

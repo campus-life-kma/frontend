@@ -17,8 +17,10 @@ export default function FloorRail({
 
   return (
     <aside
+      id="floor-rail"
       className={
-        'flex w-16 flex-col gap-2 border-r border-gray-200 bg-white p-2'
+        'pointer-events-none absolute top-1/2 left-3 z-10 flex ' +
+        '-translate-y-1/2 flex-col gap-1'
       }
     >
       {sorted.map((floor) => {
@@ -26,14 +28,16 @@ export default function FloorRail({
         return (
           <button
             key={floor.id}
+            id={`floor-rail-button-${floor.id}`}
             type="button"
             onClick={() => onSelect(floor.id)}
+            aria-current={active ? 'true' : undefined}
             className={
-              'flex h-12 items-center justify-center rounded-md ' +
+              'pointer-events-auto flex h-8 w-8 items-center justify-center ' +
               'text-base font-semibold transition ' +
               (active
-                ? 'bg-blue-600 text-white shadow'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200')
+                ? 'text-blue-700 underline decoration-2 underline-offset-4'
+                : 'text-gray-700 hover:text-blue-700')
             }
           >
             {floor.number}

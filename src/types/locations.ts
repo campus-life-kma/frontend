@@ -28,7 +28,8 @@ export type RoomType =
   | 'COMMON_AREA'
   | 'KITCHEN'
   | 'LAUNDRY'
-  | 'BATHROOM';
+  | 'BATHROOM'
+  | 'STORAGE';
 
 export interface RoomOnMap {
   id: number;

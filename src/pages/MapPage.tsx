@@ -6,7 +6,7 @@ import type { RoomOnMap } from '../types/locations';
 import FloorMap from '../components/FloorMap';
 import FloorRail from '../components/FloorRail';
 import ProfileMenu from '../components/ProfileMenu';
-import RoomDetailsModal from '../components/RoomDetailsModal';
+import RoomDetailsDrawer from '../components/RoomDetailsDrawer';
 
 function toNumberOrNull(value: string | null | undefined): number | null {
   if (value === null || value === undefined || value === '') return null;
@@ -48,9 +48,12 @@ export default function MapPage() {
     setSelectedRoomId(null);
   };
 
+  const floorEvents = mapQuery.data?.active_floor_events ?? [];
+
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
+    <div id="map-page" className="flex h-screen flex-col bg-gray-50">
       <header
+        id="map-header"
         className={
           'flex h-14 items-center justify-between border-b border-gray-200 ' +
           'bg-white px-6'
@@ -62,7 +65,7 @@ export default function MapPage() {
         {user && <ProfileMenu user={user} onLogout={logout} />}
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <main id="map-main" className="relative flex flex-1 overflow-hidden">
         {floorsQuery.data && (
           <FloorRail
             floors={floorsQuery.data}
@@ -70,12 +73,31 @@ export default function MapPage() {
             onSelect={handleFloorSelect}
           />
         )}
-        <main className="flex flex-1 items-center justify-center overflow-auto p-6">
+
+        {floorEvents.length > 0 && (
+          <div
+            id="floor-events-banner"
+            className={
+              'pointer-events-none absolute top-3 left-1/2 z-10 ' +
+              '-translate-x-1/2 rounded-full bg-white/95 px-4 py-1.5 ' +
+              'text-xs font-medium text-gray-700 shadow'
+            }
+          >
+            🎉 На поверсі: {floorEvents.map((event) => event.title).join(', ')}
+          </div>
+        )}
+
+        <div
+          id="map-canvas"
+          className="flex flex-1 items-stretch justify-stretch"
+        >
           {mapQuery.isLoading && (
-            <p className="text-sm text-gray-500">Завантажуємо…</p>
+            <p className="m-auto text-sm text-gray-500">Завантажуємо…</p>
           )}
           {mapQuery.isError && (
-            <p className="text-sm text-red-700">Не вдалося завантажити мапу.</p>
+            <p className="m-auto text-sm text-red-700">
+              Не вдалося завантажити мапу.
+            </p>
           )}
           {mapQuery.data && (
             <FloorMap
@@ -84,10 +106,10 @@ export default function MapPage() {
               selectedRoomId={selectedRoomId}
             />
           )}
-        </main>
-      </div>
+        </div>
+      </main>
 
-      <RoomDetailsModal
+      <RoomDetailsDrawer
         room={selectedRoom}
         onClose={() => setSelectedRoomId(null)}
       />
