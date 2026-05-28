@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch';
+import { iconForResourceName } from './resource-icons';
+import { resolveMediaUrl } from '../utils/media';
 import type {
   FloorMapData,
   ResourceOnMap,
@@ -20,18 +22,20 @@ const ROOM_TYPE_COLOR: Record<string, string> = {
   KITCHEN: '#fff1cf',
   LAUNDRY: '#e9d6ff',
   BATHROOM: '#cfecf4',
+  STORAGE: '#e5e7eb',
 };
 const BLOCKED_COLOR = '#f3b9b9';
 const DEFAULT_FILL = '#e5e7eb';
 const DEFAULT_STROKE = '#3A4A6B';
 const SELECTED_STROKE = '#1d4ed8';
+const DISABLED_FILL = '#e9e9e9';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const OVERLAY_CLASS = 'campus-life-overlay';
 const USER_RADIUS = 11;
 const USER_GAP = 4;
 const MAX_USER_CIRCLES = 6;
-const RESOURCE_SIZE = 18;
+const RESOURCE_SIZE = 20;
 const RESOURCE_GAP = 6;
 const ROOM_PAD_X = 6;
 const LABEL_TOP_GAP = 14;
@@ -41,17 +45,6 @@ const LABEL_FONT_MIN = 8;
 function fillFor(room: RoomOnMap): string {
   if (room.is_blocked) return BLOCKED_COLOR;
   return ROOM_TYPE_COLOR[room.room_type] ?? DEFAULT_FILL;
-}
-
-function emojiForResource(resource: ResourceOnMap): string {
-  const name = resource.name.toLowerCase();
-  if (name.includes('пральн')) return '🧺';
-  if (name.includes('сушильн')) return '🌀';
-  if (name.includes('плит')) return '🍳';
-  if (name.includes('душ')) return '🚿';
-  if (name.includes('мікрох')) return '♨️';
-  if (name.includes('чайник')) return '☕';
-  return '🔧';
 }
 
 function initialOf(user: UserOnMap): string {
@@ -66,6 +59,7 @@ function buildUserNode(
   uniqueKey: string
 ): SVGElement {
   const wrapper = document.createElementNS(SVG_NS, 'g');
+  wrapper.setAttribute('data-user-id', user.id);
   wrapper.style.pointerEvents = 'auto';
   wrapper.style.cursor = 'default';
 
@@ -73,7 +67,8 @@ function buildUserNode(
   title.textContent = user.display_name;
   wrapper.appendChild(title);
 
-  if (user.photo) {
+  const photoUrl = resolveMediaUrl(user.photo);
+  if (photoUrl) {
     const clipId = `clip-${uniqueKey}`;
     const clipPath = document.createElementNS(SVG_NS, 'clipPath');
     clipPath.setAttribute('id', clipId);
@@ -88,9 +83,9 @@ function buildUserNode(
     image.setAttributeNS(
       'http://www.w3.org/1999/xlink',
       'xlink:href',
-      user.photo
+      photoUrl
     );
-    image.setAttribute('href', user.photo);
+    image.setAttribute('href', photoUrl);
     image.setAttribute('x', String(cx - USER_RADIUS));
     image.setAttribute('y', String(cy - USER_RADIUS));
     image.setAttribute('width', String(USER_RADIUS * 2));
@@ -159,6 +154,7 @@ function buildResourceNode(
   cy: number
 ): SVGElement {
   const wrapper = document.createElementNS(SVG_NS, 'g');
+  wrapper.setAttribute('data-resource-id', String(resource.id));
   wrapper.style.pointerEvents = 'auto';
 
   const title = document.createElementNS(SVG_NS, 'title');
@@ -167,14 +163,15 @@ function buildResourceNode(
     : resource.name;
   wrapper.appendChild(title);
 
-  const text = document.createElementNS(SVG_NS, 'text');
-  text.textContent = emojiForResource(resource);
-  text.setAttribute('x', String(cx));
-  text.setAttribute('y', String(cy + 6));
-  text.setAttribute('text-anchor', 'middle');
-  text.setAttribute('font-size', '16');
-  if (resource.is_blocked) text.setAttribute('opacity', '0.45');
-  wrapper.appendChild(text);
+  const iconSvg = document.createElementNS(SVG_NS, 'svg');
+  iconSvg.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
+  iconSvg.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
+  iconSvg.setAttribute('width', String(RESOURCE_SIZE));
+  iconSvg.setAttribute('height', String(RESOURCE_SIZE));
+  iconSvg.setAttribute('viewBox', '0 0 24 24');
+  iconSvg.style.color = resource.is_blocked ? '#9ca3af' : '#374151';
+  iconSvg.innerHTML = iconForResourceName(resource.name);
+  wrapper.appendChild(iconSvg);
 
   return wrapper;
 }
@@ -250,8 +247,11 @@ function renderRoomOverlay(
   const maxWidth = Math.max(20, bbox.width - ROOM_PAD_X * 2);
   const topY = findTopEdgeY(el, cx, bbox);
 
+  const hasEvents = room.active_events.length > 0;
+  const displayName = hasEvents ? `🎉 ${room.name}` : room.name;
+
   const { node: label, fontSize } = fitRoomLabel(
-    room.name,
+    displayName,
     maxWidth,
     overlayGroup
   );
@@ -341,10 +341,32 @@ export default function FloorMap({
 
     const overlayGroup = document.createElementNS(SVG_NS, 'g') as SVGGElement;
     overlayGroup.classList.add(OVERLAY_CLASS);
+    overlayGroup.setAttribute('id', 'campus-life-overlays');
     overlayGroup.style.pointerEvents = 'none';
     svg.appendChild(overlayGroup);
 
     const cleanups: Array<() => void> = [];
+
+    const apiRoomIds = new Set(data.rooms.map((r) => r.svg_element_id));
+    const allRoomPolygons = svg.querySelectorAll<SVGGeometryElement>(
+      '[id^="room_"], [id^="kitchen"], [id^="washing_"], [id^="admin_"], [id^="doorman_"], [id^="font_"]'
+    );
+
+    allRoomPolygons.forEach((el) => {
+      if (apiRoomIds.has(el.id)) return;
+      // Non-functional room: not part of the dorm
+      el.setAttribute('fill', DISABLED_FILL);
+      el.setAttribute('fill-opacity', '0.6');
+      el.style.cursor = 'not-allowed';
+      const existingTitle = el.querySelector('title');
+      if (existingTitle) {
+        existingTitle.textContent = 'Ця кімната не належить гуртожитку';
+      } else {
+        const newTitle = document.createElementNS(SVG_NS, 'title');
+        newTitle.textContent = 'Ця кімната не належить гуртожитку';
+        el.appendChild(newTitle);
+      }
+    });
 
     for (const room of data.rooms) {
       const el = container.querySelector<SVGGeometryElement>(
@@ -352,17 +374,27 @@ export default function FloorMap({
       );
       if (!el) continue;
 
-      el.setAttribute('fill', fillFor(room));
+      const baseFill = fillFor(room);
+      el.setAttribute('fill', baseFill);
       el.setAttribute('fill-opacity', '0.85');
       el.style.cursor = 'pointer';
-      el.style.transition = 'fill-opacity 120ms ease';
+      el.style.transition = 'filter 120ms ease, fill-opacity 120ms ease';
+      el.setAttribute('data-room-id', String(room.id));
 
       const isSelected = room.id === selectedRoomId;
       el.setAttribute('stroke', isSelected ? SELECTED_STROKE : DEFAULT_STROKE);
       el.setAttribute('stroke-width', isSelected ? '6' : '4');
 
-      const onEnter = () => el.setAttribute('fill-opacity', '1');
-      const onLeave = () => el.setAttribute('fill-opacity', '0.85');
+      const onEnter = () => {
+        el.setAttribute('fill-opacity', '1');
+        el.style.filter = 'brightness(0.88) saturate(1.25)';
+        if (!isSelected) el.setAttribute('stroke-width', '5');
+      };
+      const onLeave = () => {
+        el.setAttribute('fill-opacity', '0.85');
+        el.style.filter = '';
+        if (!isSelected) el.setAttribute('stroke-width', '4');
+      };
       const onClick = () => onRoomClick(room);
       el.addEventListener('mouseenter', onEnter);
       el.addEventListener('mouseleave', onLeave);
@@ -419,27 +451,30 @@ export default function FloorMap({
       pinch={{ step: 5 }}
     >
       {({ zoomIn, zoomOut, resetTransform }) => (
-        <div className="relative h-full w-full overflow-hidden">
+        <div
+          id="floor-map-frame"
+          className="relative h-full w-full overflow-hidden"
+        >
           <TransformComponent
             wrapperClass="!h-full !w-full"
             contentClass="!h-full !w-full flex items-center justify-center"
           >
             <div
+              id="floor-map-svg-container"
               ref={containerRef}
-              className={
-                '[&_svg]:h-auto [&_svg]:max-h-[80vh] ' +
-                '[&_svg]:w-auto [&_svg]:max-w-full'
-              }
+              className="[&_svg]:h-auto [&_svg]:max-h-[80vh] [&_svg]:w-auto [&_svg]:max-w-full"
               dangerouslySetInnerHTML={{ __html: svgQuery.data }}
             />
           </TransformComponent>
           <div
+            id="floor-map-zoom-controls"
             className={
               'pointer-events-auto absolute right-3 bottom-3 z-10 ' +
               'flex flex-col gap-1 rounded-md bg-white/90 p-1 shadow'
             }
           >
             <button
+              id="floor-map-zoom-in"
               type="button"
               aria-label="Збільшити"
               onClick={() => zoomIn()}
@@ -451,6 +486,7 @@ export default function FloorMap({
               +
             </button>
             <button
+              id="floor-map-zoom-out"
               type="button"
               aria-label="Зменшити"
               onClick={() => zoomOut()}
@@ -462,6 +498,7 @@ export default function FloorMap({
               −
             </button>
             <button
+              id="floor-map-zoom-reset"
               type="button"
               aria-label="Скинути"
               onClick={() => resetTransform()}
