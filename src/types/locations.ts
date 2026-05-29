@@ -21,6 +21,8 @@ export interface ResourceOnMap {
   name: string;
   max_person: number;
   is_blocked: boolean;
+  resource_type?: string;
+  resource_icon?: string | null;
 }
 
 export type RoomType =
