@@ -22,7 +22,7 @@ const ROOM_TYPE_COLOR: Record<string, string> = {
   KITCHEN: '#fff1cf',
   LAUNDRY: '#e9d6ff',
   BATHROOM: '#cfecf4',
-  STORAGE: '#e5e7eb',
+  STORAGE: '#e7d8b8',
 };
 const BLOCKED_COLOR = '#f3b9b9';
 const DEFAULT_FILL = '#e5e7eb';
@@ -514,9 +514,12 @@ export default function FloorMap({
     const cleanups: Array<() => void> = [];
 
     const apiRoomIds = new Set(data.rooms.map((r) => r.svg_element_id));
-    const allRoomPolygons = svg.querySelectorAll<SVGGeometryElement>(
-      '[id^="room_"], [id^="kitchen"], [id^="washing_"], [id^="admin_"], [id^="doorman_"], [id^="font_"]'
-    );
+    // Every id-bearing shape inside the map's #rooms group is a room polygon;
+    // any that the API does not reference is a non-functional room.
+    const roomsGroup = svg.querySelector('#rooms');
+    const allRoomPolygons = (
+      roomsGroup ?? svg
+    ).querySelectorAll<SVGGeometryElement>('[id]');
 
     allRoomPolygons.forEach((el) => {
       if (apiRoomIds.has(el.id)) return;
@@ -524,6 +527,7 @@ export default function FloorMap({
       el.setAttribute('fill', DISABLED_FILL);
       el.setAttribute('fill-opacity', '0.6');
       el.style.cursor = 'not-allowed';
+      el.style.pointerEvents = 'auto';
       const existingTitle = el.querySelector('title');
       if (existingTitle) {
         existingTitle.textContent = 'Ця кімната не належить гуртожитку';
