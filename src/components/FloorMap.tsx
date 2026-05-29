@@ -153,32 +153,66 @@ function buildOverflowNode(count: number, cx: number, cy: number): SVGElement {
   return wrapper;
 }
 
+// One on-map icon per distinct resource type (two stoves + one washer => a
+// stove icon and a washer icon). Keeps the server icon and aggregates names.
+interface ResourceIcon {
+  key: string;
+  iconUrl: string | null;
+  fallbackName: string;
+  names: string[];
+  allBlocked: boolean;
+}
+
+function dedupeResources(resources: ResourceOnMap[]): ResourceIcon[] {
+  const byType = new Map<string, ResourceIcon>();
+  for (const resource of resources) {
+    const key =
+      resource.resource_type ?? resource.resource_icon ?? resource.name;
+    const existing = byType.get(key);
+    if (existing) {
+      existing.names.push(resource.name);
+      existing.allBlocked = existing.allBlocked && resource.is_blocked;
+    } else {
+      byType.set(key, {
+        key,
+        iconUrl: resolveMediaUrl(resource.resource_icon ?? null),
+        fallbackName: resource.name,
+        names: [resource.name],
+        allBlocked: resource.is_blocked,
+      });
+    }
+  }
+  return [...byType.values()];
+}
+
 function buildResourceNode(
-  resource: ResourceOnMap,
+  icon: ResourceIcon,
   cx: number,
   cy: number
 ): SVGElement {
   const wrapper = document.createElementNS(SVG_NS, 'g');
-  wrapper.setAttribute('data-resource-id', String(resource.id));
+  wrapper.setAttribute('data-resource-type', icon.key);
   wrapper.style.pointerEvents = 'auto';
 
   const title = document.createElementNS(SVG_NS, 'title');
-  title.textContent = resource.is_blocked
-    ? `${resource.name} (зайнятий)`
-    : resource.name;
+  const label = icon.names.join(', ');
+  title.textContent = icon.allBlocked ? `${label} (зайнятий)` : label;
   wrapper.appendChild(title);
 
-  const iconUrl = resolveMediaUrl(resource.resource_icon ?? null);
-  if (iconUrl) {
+  if (icon.iconUrl) {
     const image = document.createElementNS(SVG_NS, 'image');
-    image.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', iconUrl);
-    image.setAttribute('href', iconUrl);
+    image.setAttributeNS(
+      'http://www.w3.org/1999/xlink',
+      'xlink:href',
+      icon.iconUrl
+    );
+    image.setAttribute('href', icon.iconUrl);
     image.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
     image.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
     image.setAttribute('width', String(RESOURCE_SIZE));
     image.setAttribute('height', String(RESOURCE_SIZE));
     image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    if (resource.is_blocked) image.setAttribute('opacity', '0.4');
+    if (icon.allBlocked) image.setAttribute('opacity', '0.4');
     wrapper.appendChild(image);
   } else {
     const iconSvg = document.createElementNS(SVG_NS, 'svg');
@@ -187,8 +221,8 @@ function buildResourceNode(
     iconSvg.setAttribute('width', String(RESOURCE_SIZE));
     iconSvg.setAttribute('height', String(RESOURCE_SIZE));
     iconSvg.setAttribute('viewBox', '0 0 24 24');
-    iconSvg.style.color = resource.is_blocked ? '#9ca3af' : '#374151';
-    iconSvg.innerHTML = iconForResourceName(resource.name);
+    iconSvg.style.color = icon.allBlocked ? '#9ca3af' : '#374151';
+    iconSvg.innerHTML = iconForResourceName(icon.fallbackName);
     wrapper.appendChild(iconSvg);
   }
 
@@ -349,6 +383,7 @@ function renderInventoryBand(
   overlayGroup: SVGGElement
 ) {
   if (room.resources.length === 0) return;
+  const icons = dedupeResources(room.resources);
   const slotWidth = RESOURCE_SIZE + RESOURCE_GAP;
   const maxSlots = Math.max(
     0,
@@ -357,12 +392,12 @@ function renderInventoryBand(
   const cap = Math.min(5, maxSlots);
   if (cap <= 0) return;
 
-  const visible = room.resources.slice(0, cap);
+  const visible = icons.slice(0, cap);
   const rowWidth = visible.length * slotWidth - RESOURCE_GAP;
   const startX = band.cx - rowWidth / 2 + RESOURCE_SIZE / 2;
-  visible.forEach((resource, index) => {
+  visible.forEach((icon, index) => {
     const rx = startX + index * slotWidth;
-    overlayGroup.appendChild(buildResourceNode(resource, rx, band.y));
+    overlayGroup.appendChild(buildResourceNode(icon, rx, band.y));
   });
 }
 
