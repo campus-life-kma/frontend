@@ -1,10 +1,30 @@
+import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
-import HomePage from './pages/HomePage';
+import MapPage from './pages/MapPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import { useAuthStore } from './store/authStore';
 
 function App() {
+  const bootstrap = useAuthStore((state) => state.bootstrap);
+  const isBootstrapped = useAuthStore((state) => state.isBootstrapped);
+
+  useEffect(() => {
+    void bootstrap();
+  }, [bootstrap]);
+
+  if (!isBootstrapped) {
+    return (
+      <div
+        id="app-bootstrap"
+        className="flex min-h-screen items-center justify-center bg-gray-50"
+      >
+        <p className="text-sm text-gray-500">Завантаження…</p>
+      </div>
+    );
+  }
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -13,7 +33,7 @@ function App() {
         path="/"
         element={
           <ProtectedRoute>
-            <HomePage />
+            <MapPage />
           </ProtectedRoute>
         }
       />
