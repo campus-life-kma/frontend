@@ -168,15 +168,29 @@ function buildResourceNode(
     : resource.name;
   wrapper.appendChild(title);
 
-  const iconSvg = document.createElementNS(SVG_NS, 'svg');
-  iconSvg.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
-  iconSvg.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
-  iconSvg.setAttribute('width', String(RESOURCE_SIZE));
-  iconSvg.setAttribute('height', String(RESOURCE_SIZE));
-  iconSvg.setAttribute('viewBox', '0 0 24 24');
-  iconSvg.style.color = resource.is_blocked ? '#9ca3af' : '#374151';
-  iconSvg.innerHTML = iconForResourceName(resource.name);
-  wrapper.appendChild(iconSvg);
+  const iconUrl = resolveMediaUrl(resource.resource_icon ?? null);
+  if (iconUrl) {
+    const image = document.createElementNS(SVG_NS, 'image');
+    image.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', iconUrl);
+    image.setAttribute('href', iconUrl);
+    image.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
+    image.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
+    image.setAttribute('width', String(RESOURCE_SIZE));
+    image.setAttribute('height', String(RESOURCE_SIZE));
+    image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    if (resource.is_blocked) image.setAttribute('opacity', '0.4');
+    wrapper.appendChild(image);
+  } else {
+    const iconSvg = document.createElementNS(SVG_NS, 'svg');
+    iconSvg.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
+    iconSvg.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
+    iconSvg.setAttribute('width', String(RESOURCE_SIZE));
+    iconSvg.setAttribute('height', String(RESOURCE_SIZE));
+    iconSvg.setAttribute('viewBox', '0 0 24 24');
+    iconSvg.style.color = resource.is_blocked ? '#9ca3af' : '#374151';
+    iconSvg.innerHTML = iconForResourceName(resource.name);
+    wrapper.appendChild(iconSvg);
+  }
 
   return wrapper;
 }
