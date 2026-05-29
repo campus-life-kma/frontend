@@ -38,9 +38,14 @@ const MAX_USER_CIRCLES = 6;
 const RESOURCE_SIZE = 20;
 const RESOURCE_GAP = 6;
 const ROOM_PAD_X = 6;
-const LABEL_TOP_GAP = 14;
 const LABEL_FONT_MAX = 13;
 const LABEL_FONT_MIN = 8;
+
+// Each room is split into three horizontal bands by vertical fill extent:
+// name on top, inventory icons in the middle, people at the bottom.
+const BAND_NAME_FRACTION = 1 / 6;
+const BAND_INVENTORY_FRACTION = 1 / 2;
+const BAND_PEOPLE_FRACTION = 5 / 6;
 
 function fillFor(room: RoomOnMap): string {
   if (room.is_blocked) return BLOCKED_COLOR;
@@ -200,6 +205,51 @@ function findTopEdgeY(
   return hi;
 }
 
+function findBottomEdgeY(
+  el: SVGGeometryElement,
+  cx: number,
+  bbox: DOMRect
+): number {
+  const centerY = bbox.y + bbox.height / 2;
+  const bottom = bbox.y + bbox.height;
+  if (!el.isPointInFill({ x: cx, y: centerY })) {
+    return bottom;
+  }
+
+  let lo = centerY;
+  let hi = bottom;
+  for (let i = 0; i < 24 && hi - lo > 0.5; i++) {
+    const mid = (lo + hi) / 2;
+    if (el.isPointInFill({ x: cx, y: mid })) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+
+  return lo;
+}
+
+// Scans the polygon's horizontal cross-section at a given y so content can be
+// centred inside the real (possibly angled) shape rather than its bounding box.
+function findRowSpan(
+  el: SVGGeometryElement,
+  y: number,
+  bbox: DOMRect
+): { cx: number; width: number } | null {
+  const step = Math.max(1, bbox.width / 120);
+  let left: number | null = null;
+  let right: number | null = null;
+  for (let x = bbox.x; x <= bbox.x + bbox.width; x += step) {
+    if (el.isPointInFill({ x, y })) {
+      if (left === null) left = x;
+      right = x;
+    }
+  }
+  if (left === null || right === null) return null;
+  return { cx: (left + right) / 2, width: right - left };
+}
+
 function fitRoomLabel(
   name: string,
   maxWidth: number,
@@ -236,6 +286,111 @@ function fitRoomLabel(
   return { node: label, fontSize };
 }
 
+interface BandGeometry {
+  y: number;
+  cx: number;
+  maxWidth: number;
+}
+
+// Resolves a band centre to a point that actually lies inside the polygon,
+// scanning the cross-section at that height (falls back to the bbox centre).
+function resolveBand(
+  el: SVGGeometryElement,
+  bbox: DOMRect,
+  y: number
+): BandGeometry {
+  const span = findRowSpan(el, y, bbox);
+  if (span) {
+    return {
+      y,
+      cx: span.cx,
+      maxWidth: Math.max(16, span.width - ROOM_PAD_X * 2),
+    };
+  }
+  return {
+    y,
+    cx: bbox.x + bbox.width / 2,
+    maxWidth: Math.max(16, bbox.width - ROOM_PAD_X * 2),
+  };
+}
+
+function renderNameBand(
+  displayName: string,
+  band: BandGeometry,
+  overlayGroup: SVGGElement
+) {
+  const { node: label, fontSize } = fitRoomLabel(
+    displayName,
+    band.maxWidth,
+    overlayGroup
+  );
+  label.setAttribute('x', String(band.cx));
+  // Vertically centre the text on the band's midline.
+  label.setAttribute('y', String(band.y + fontSize / 3));
+}
+
+function renderInventoryBand(
+  room: RoomOnMap,
+  band: BandGeometry,
+  overlayGroup: SVGGElement
+) {
+  if (room.resources.length === 0) return;
+  const slotWidth = RESOURCE_SIZE + RESOURCE_GAP;
+  const maxSlots = Math.max(
+    0,
+    Math.floor((band.maxWidth + RESOURCE_GAP) / slotWidth)
+  );
+  const cap = Math.min(5, maxSlots);
+  if (cap <= 0) return;
+
+  const visible = room.resources.slice(0, cap);
+  const rowWidth = visible.length * slotWidth - RESOURCE_GAP;
+  const startX = band.cx - rowWidth / 2 + RESOURCE_SIZE / 2;
+  visible.forEach((resource, index) => {
+    const rx = startX + index * slotWidth;
+    overlayGroup.appendChild(buildResourceNode(resource, rx, band.y));
+  });
+}
+
+function renderPeopleBand(
+  room: RoomOnMap,
+  band: BandGeometry,
+  defs: SVGDefsElement,
+  overlayGroup: SVGGElement
+) {
+  if (room.current_users.length === 0) return;
+  const slotWidth = USER_RADIUS * 2 + USER_GAP;
+  const maxSlots = Math.max(
+    0,
+    Math.floor((band.maxWidth + USER_GAP) / slotWidth)
+  );
+  const cap = Math.min(MAX_USER_CIRCLES, maxSlots);
+  if (cap <= 0) return;
+
+  const needsOverflow = room.current_users.length > cap;
+  const visibleUsers = room.current_users.slice(
+    0,
+    needsOverflow ? Math.max(0, cap - 1) : cap
+  );
+  const overflow = room.current_users.length - visibleUsers.length;
+  const slotsUsed = visibleUsers.length + (overflow > 0 ? 1 : 0);
+  if (slotsUsed <= 0) return;
+
+  const rowWidth = slotsUsed * slotWidth - USER_GAP;
+  const startX = band.cx - rowWidth / 2 + USER_RADIUS;
+
+  visibleUsers.forEach((user, index) => {
+    const ux = startX + index * slotWidth;
+    const node = buildUserNode(user, ux, band.y, defs, `${room.id}-${user.id}`);
+    overlayGroup.appendChild(node);
+  });
+
+  if (overflow > 0) {
+    const ox = startX + visibleUsers.length * slotWidth;
+    overlayGroup.appendChild(buildOverflowNode(overflow, ox, band.y));
+  }
+}
+
 function renderRoomOverlay(
   room: RoomOnMap,
   el: SVGGeometryElement,
@@ -244,70 +399,32 @@ function renderRoomOverlay(
   overlayGroup: SVGGElement
 ) {
   const cx = bbox.x + bbox.width / 2;
-  const maxWidth = Math.max(20, bbox.width - ROOM_PAD_X * 2);
   const topY = findTopEdgeY(el, cx, bbox);
+  const bottomY = findBottomEdgeY(el, cx, bbox);
+  const innerHeight = Math.max(1, bottomY - topY);
+
+  const nameBand = resolveBand(
+    el,
+    bbox,
+    topY + innerHeight * BAND_NAME_FRACTION
+  );
+  const inventoryBand = resolveBand(
+    el,
+    bbox,
+    topY + innerHeight * BAND_INVENTORY_FRACTION
+  );
+  const peopleBand = resolveBand(
+    el,
+    bbox,
+    topY + innerHeight * BAND_PEOPLE_FRACTION
+  );
 
   const hasEvents = room.active_events.length > 0;
   const displayName = hasEvents ? `🎉 ${room.name}` : room.name;
 
-  const { node: label, fontSize } = fitRoomLabel(
-    displayName,
-    maxWidth,
-    overlayGroup
-  );
-  const labelBaseline = topY + LABEL_TOP_GAP + fontSize;
-  label.setAttribute('x', String(cx));
-  label.setAttribute('y', String(labelBaseline));
-
-  const userSlotWidth = USER_RADIUS * 2 + USER_GAP;
-  const maxUserSlots = Math.max(
-    0,
-    Math.floor((maxWidth + USER_GAP) / userSlotWidth)
-  );
-  const userCap = Math.min(MAX_USER_CIRCLES, maxUserSlots);
-  const needsOverflow = room.current_users.length > userCap;
-  const visibleUsers = room.current_users.slice(
-    0,
-    needsOverflow ? Math.max(0, userCap - 1) : userCap
-  );
-  const overflow = room.current_users.length - visibleUsers.length;
-  const slotsUsed = visibleUsers.length + (overflow > 0 ? 1 : 0);
-
-  if (slotsUsed > 0) {
-    const rowWidth = slotsUsed * userSlotWidth - USER_GAP;
-    const startX = cx - rowWidth / 2 + USER_RADIUS;
-    const rowY = labelBaseline + USER_RADIUS + 6;
-
-    visibleUsers.forEach((user, index) => {
-      const ux = startX + index * userSlotWidth;
-      const node = buildUserNode(user, ux, rowY, defs, `${room.id}-${user.id}`);
-      overlayGroup.appendChild(node);
-    });
-
-    if (overflow > 0) {
-      const ox = startX + visibleUsers.length * userSlotWidth;
-      overlayGroup.appendChild(buildOverflowNode(overflow, ox, rowY));
-    }
-  }
-
-  if (room.resources.length > 0) {
-    const resourceSlotWidth = RESOURCE_SIZE + RESOURCE_GAP;
-    const maxResSlots = Math.max(
-      0,
-      Math.floor((maxWidth + RESOURCE_GAP) / resourceSlotWidth)
-    );
-    const resCap = Math.min(5, maxResSlots);
-    if (resCap > 0) {
-      const visible = room.resources.slice(0, resCap);
-      const rowY = labelBaseline + (slotsUsed > 0 ? USER_RADIUS * 2 + 12 : 8);
-      const rowWidth = visible.length * resourceSlotWidth - RESOURCE_GAP;
-      const startX = cx - rowWidth / 2 + RESOURCE_SIZE / 2;
-      visible.forEach((resource, index) => {
-        const rx = startX + index * resourceSlotWidth;
-        overlayGroup.appendChild(buildResourceNode(resource, rx, rowY));
-      });
-    }
-  }
+  renderNameBand(displayName, nameBand, overlayGroup);
+  renderInventoryBand(room, inventoryBand, overlayGroup);
+  renderPeopleBand(room, peopleBand, defs, overlayGroup);
 }
 
 export default function FloorMap({
