@@ -1,5 +1,6 @@
 import type { RoomOnMap } from '../types/locations';
 import UserAvatar from './UserAvatar';
+import ResourceTypeIcon from './ResourceTypeIcon';
 
 interface RoomDetailsPanelProps {
   room: RoomOnMap | null;
@@ -105,9 +106,10 @@ export default function RoomDetailsPanel({ room }: RoomDetailsPanelProps) {
               <li
                 key={resource.id}
                 id={`room-resource-${resource.id}`}
-                className="flex items-center justify-between"
+                className="flex items-center gap-2"
               >
-                <span>{resource.name}</span>
+                <ResourceTypeIcon resource={resource} size={18} />
+                <span className="flex-1">{resource.name}</span>
                 {resource.is_blocked && (
                   <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">
                     зайнято
