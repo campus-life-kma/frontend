@@ -2,7 +2,7 @@ import { useState, type SyntheticEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import axios from 'axios';
-import { devLogin, loginWithMicrosoft } from '../api/auth';
+import { devLogin } from '../api/auth';
 import { msalLoginRequest } from '../api/msal-config';
 import { useAuthStore } from '../store/authStore';
 
@@ -32,17 +32,11 @@ export default function LoginPage() {
     setError(null);
     setSsoLoading(true);
     try {
-      const result = await msalInstance.loginPopup(msalLoginRequest);
-      const session = await loginWithMicrosoft(result.accessToken);
-      setSession({
-        accessToken: session.access,
-        refreshToken: session.refresh,
-        user: session.user,
-      });
-      navigate('/');
+      await msalInstance.loginRedirect(msalLoginRequest);
     } catch (err) {
-      setError(extractErrorMessage(err, 'Не вдалося увійти через SSO.'));
-    } finally {
+      setError(
+        extractErrorMessage(err, 'Не вдалося ініціювати вхід через SSO.')
+      );
       setSsoLoading(false);
     }
   }
