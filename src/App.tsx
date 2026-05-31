@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import MapPage from './pages/MapPage';
+import ResourceBookingPage from './pages/ResourceBookingPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuthStore } from './store/authStore';
@@ -34,6 +35,14 @@ function App() {
         element={
           <ProtectedRoute>
             <MapPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/resources/:resourceId"
+        element={
+          <ProtectedRoute>
+            <ResourceBookingPage />
           </ProtectedRoute>
         }
       />

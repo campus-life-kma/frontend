@@ -1,9 +1,13 @@
 import type { RoomOnMap } from '../types/locations';
 import UserAvatar from './UserAvatar';
 import ResourceTypeIcon from './ResourceTypeIcon';
+import { Link } from 'react-router-dom';
 
 interface RoomDetailsPanelProps {
   room: RoomOnMap | null;
+  floorId?: number | null;
+  floorNumber?: number | null;
+  dormitoryName?: string | null;
 }
 
 const ROOM_TYPE_LABEL: Record<string, string> = {
@@ -15,7 +19,12 @@ const ROOM_TYPE_LABEL: Record<string, string> = {
   STORAGE: 'Склад',
 };
 
-export default function RoomDetailsPanel({ room }: RoomDetailsPanelProps) {
+export default function RoomDetailsPanel({
+  room,
+  floorId,
+  floorNumber,
+  dormitoryName,
+}: RoomDetailsPanelProps) {
   if (!room) {
     return (
       <p className="text-sm text-gray-500">
@@ -103,18 +112,29 @@ export default function RoomDetailsPanel({ room }: RoomDetailsPanelProps) {
           </h3>
           <ul className="flex flex-col gap-1">
             {room.resources.map((resource) => (
-              <li
-                key={resource.id}
-                id={`room-resource-${resource.id}`}
-                className="flex items-center gap-2"
-              >
-                <ResourceTypeIcon resource={resource} size={18} />
-                <span className="flex-1">{resource.name}</span>
-                {resource.is_blocked && (
-                  <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">
-                    зайнято
-                  </span>
-                )}
+              <li key={resource.id} id={`room-resource-${resource.id}`}>
+                <Link
+                  to={`/resources/${resource.id}`}
+                  state={{
+                    resource,
+                    room,
+                    floorId,
+                    floorNumber,
+                    dormitoryName,
+                  }}
+                  className={
+                    'flex items-center gap-2 rounded-md px-2 py-1.5 ' +
+                    'transition hover:bg-gray-50'
+                  }
+                >
+                  <ResourceTypeIcon resource={resource} size={18} />
+                  <span className="flex-1">{resource.name}</span>
+                  {resource.is_blocked && (
+                    <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">
+                      зайнято
+                    </span>
+                  )}
+                </Link>
               </li>
             ))}
           </ul>

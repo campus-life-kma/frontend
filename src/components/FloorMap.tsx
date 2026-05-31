@@ -192,7 +192,7 @@ function buildResourceNode(
 ): SVGElement {
   const wrapper = document.createElementNS(SVG_NS, 'g');
   wrapper.setAttribute('data-resource-type', icon.key);
-  wrapper.style.pointerEvents = 'auto';
+  wrapper.style.pointerEvents = 'none';
 
   const title = document.createElementNS(SVG_NS, 'title');
   const label = icon.names.join(', ');

@@ -111,6 +111,9 @@ export default function MapPage() {
 
       <RoomDetailsDrawer
         room={selectedRoom}
+        floorId={mapQuery.data?.id ?? effectiveFloorId}
+        floorNumber={mapQuery.data?.number ?? null}
+        dormitoryName={mapQuery.data?.dormitory_name ?? null}
         onClose={() => setSelectedRoomId(null)}
       />
     </div>
