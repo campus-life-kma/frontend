@@ -1,0 +1,907 @@
+import { useMemo, useState } from 'react';
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  deleteEvent,
+  deleteSharingRequest,
+  getEvent,
+  getFeed,
+  joinEvent,
+  leaveEvent,
+} from '../api/social';
+import {
+  getActiveAnnouncements,
+  markAnnouncementRead,
+} from '../api/announcements';
+import { getFloors } from '../api/locations';
+import UserAvatar from '../components/UserAvatar';
+import ProfileMenu from '../components/ProfileMenu';
+import { useAuthStore } from '../store/authStore';
+import type { Announcement } from '../types/announcements';
+import type {
+  FeedItem,
+  SocialEvent,
+  SocialSharingRequest,
+} from '../types/social';
+
+type FeedType = 'all' | 'events' | 'sharing';
+type PendingDelete =
+  | { kind: 'event'; id: number; title: string }
+  | { kind: 'sharing'; id: number; title: string };
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat('uk-UA', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function formatParticipantLimit(event: SocialEvent): string {
+  const count = event.participants?.length ?? event.participants_count ?? 0;
+  return event.max_person > 0
+    ? `${count} / ${event.max_person}`
+    : `${count} · необмежено`;
+}
+
+function formatSharingStatus(status: string): string {
+  const labels: Record<string, string> = {
+    ACTIVE: 'Активний',
+    COMPLETED: 'Виконано',
+    DONE: 'Виконано',
+    CANCELLED: 'Скасовано',
+  };
+  return labels[status] ?? status;
+}
+
+function toInputDate(value: string): string {
+  return value ? value.slice(0, 10) : '';
+}
+
+function isEvent(item: FeedItem): item is SocialEvent {
+  return item.type === 'event';
+}
+
+function isSharing(item: FeedItem): item is SocialSharingRequest {
+  return item.type === 'sharing_request';
+}
+
+function getItemSortTime(item: FeedItem): number {
+  if (isEvent(item)) return new Date(item.start_time).getTime();
+  return new Date(item.created_at).getTime();
+}
+
+function compareFeedItems(a: FeedItem, b: FeedItem): number {
+  if (isSharing(a) && isSharing(b)) {
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  }
+  return getItemSortTime(a) - getItemSortTime(b);
+}
+
+function normalizeError(error: unknown): string {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof error.response === 'object' &&
+    error.response !== null &&
+    'data' in error.response
+  ) {
+    const data = error.response.data;
+    if (typeof data === 'object' && data !== null && 'detail' in data) {
+      return String(data.detail);
+    }
+  }
+  return 'Не вдалося виконати дію.';
+}
+
+function canModerate(
+  role: string | null | undefined,
+  userFloorId: string | null | undefined,
+  itemFloorId: number | null
+): boolean {
+  if (role === 'ADMIN') return true;
+  if (role !== 'MODERATOR') return false;
+  return Boolean(itemFloorId && String(itemFloorId) === String(userFloorId));
+}
+
+export default function SocialFeedPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const [page, setPage] = useState(1);
+  const [dismissedTimed, setDismissedTimed] = useState<Set<number>>(new Set());
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(
+    null
+  );
+
+  const type = (searchParams.get('type') as FeedType | null) ?? 'all';
+  const q = searchParams.get('q') ?? '';
+  const floor = searchParams.get('floor') ?? 'all';
+  const activeOnly = searchParams.get('active') === 'true';
+  const startDate = searchParams.get('start') ?? '';
+  const endDate = searchParams.get('end') ?? '';
+  const eventId = Number(searchParams.get('eventId'));
+  const sharingId = Number(searchParams.get('sharingId'));
+
+  const feedQueries = useQueries({
+    queries: Array.from({ length: page }, (_, index) => ({
+      queryKey: ['feed', index + 1],
+      queryFn: () => getFeed(index + 1),
+    })),
+  });
+
+  const announcementsQuery = useQuery({
+    queryKey: ['announcements-active'],
+    queryFn: getActiveAnnouncements,
+  });
+
+  const floorsQuery = useQuery({
+    queryKey: ['feed-floors', user?.dormitory_id],
+    queryFn: () => getFloors(user!.dormitory_id!),
+    enabled: !!user?.dormitory_id,
+  });
+
+  const eventDetailQuery = useQuery({
+    queryKey: ['event-detail', eventId],
+    queryFn: () => getEvent(eventId),
+    enabled: Number.isFinite(eventId) && eventId > 0,
+  });
+
+  const feedItems = useMemo(
+    () => feedQueries.flatMap((query) => query.data?.results ?? []),
+    [feedQueries]
+  );
+
+  const hasNext = feedQueries.at(-1)?.data?.has_next ?? false;
+  const isLoading = feedQueries.some((query) => query.isLoading);
+
+  const selectedSharing = Number.isFinite(sharingId)
+    ? (feedItems.find((item) => isSharing(item) && item.id === sharingId) as
+        | SocialSharingRequest
+        | undefined)
+    : undefined;
+
+  const selectedEvent =
+    eventDetailQuery.data ??
+    (Number.isFinite(eventId)
+      ? (feedItems.find((item) => isEvent(item) && item.id === eventId) as
+          | SocialEvent
+          | undefined)
+      : undefined);
+
+  const visibleItems = useMemo(() => {
+    const lowerQ = q.trim().toLowerCase();
+    const now = new Date();
+    return feedItems
+      .filter((item) => {
+        if (type === 'events' && !isEvent(item)) return false;
+        if (type === 'sharing' && !isSharing(item)) return false;
+        if (lowerQ && !item.title.toLowerCase().includes(lowerQ)) return false;
+        if (isEvent(item) && floor !== 'all') {
+          const targetFloor = floor === 'mine' ? user?.floor_id : floor;
+          if (String(item.floor_id ?? '') !== String(targetFloor ?? '')) {
+            return false;
+          }
+        }
+        if (isEvent(item)) {
+          if (activeOnly) {
+            const start = new Date(item.start_time);
+            const end = new Date(item.end_time);
+            if (!(start <= now && end >= now)) return false;
+          }
+          if (startDate && toInputDate(item.start_time) < startDate)
+            return false;
+          if (endDate && toInputDate(item.start_time) > endDate) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => compareFeedItems(a, b));
+  }, [
+    activeOnly,
+    endDate,
+    feedItems,
+    floor,
+    q,
+    startDate,
+    type,
+    user?.floor_id,
+  ]);
+
+  const readMutation = useMutation({
+    mutationFn: markAnnouncementRead,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['announcements-active'] }),
+  });
+
+  const joinMutation = useMutation({
+    mutationFn: joinEvent,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['feed'] });
+      await queryClient.invalidateQueries({ queryKey: ['event-detail'] });
+    },
+    onError: (error) => setActionError(normalizeError(error)),
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: leaveEvent,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['feed'] });
+      await queryClient.invalidateQueries({ queryKey: ['event-detail'] });
+    },
+    onError: (error) => setActionError(normalizeError(error)),
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: deleteEvent,
+    onSuccess: async () => {
+      setPendingDelete(null);
+      closeModal();
+      await queryClient.invalidateQueries({ queryKey: ['feed'] });
+    },
+    onError: (error) => setActionError(normalizeError(error)),
+  });
+
+  const deleteSharingMutation = useMutation({
+    mutationFn: deleteSharingRequest,
+    onSuccess: async () => {
+      setPendingDelete(null);
+      closeModal();
+      await queryClient.invalidateQueries({ queryKey: ['feed'] });
+    },
+    onError: (error) => setActionError(normalizeError(error)),
+  });
+
+  function updateParam(key: string, value: string | null) {
+    const next = new URLSearchParams(searchParams);
+    if (!value || value === 'all') next.delete(key);
+    else next.set(key, value);
+    if (key === 'type' && value !== 'events') {
+      next.delete('active');
+      next.delete('start');
+      next.delete('end');
+    }
+    if (key === 'type' && value === 'sharing') {
+      next.delete('floor');
+    }
+    setSearchParams(next);
+  }
+
+  function openItem(item: FeedItem) {
+    const next = new URLSearchParams(searchParams);
+    next.delete('eventId');
+    next.delete('sharingId');
+    next.set(isEvent(item) ? 'eventId' : 'sharingId', String(item.id));
+    setSearchParams(next);
+    setActionError(null);
+  }
+
+  function closeModal() {
+    const next = new URLSearchParams(searchParams);
+    next.delete('eventId');
+    next.delete('sharingId');
+    setSearchParams(next, { replace: true });
+    setActionError(null);
+  }
+
+  const activeAnnouncements =
+    announcementsQuery.data?.filter(
+      (announcement) => !dismissedTimed.has(announcement.id)
+    ) ?? [];
+
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
+        <nav className="flex items-center gap-2 text-sm">
+          <Link
+            className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
+            to="/map"
+          >
+            Мапа
+          </Link>
+          <Link
+            className="rounded-md bg-blue-50 px-3 py-1.5 font-medium text-blue-700"
+            to="/feed"
+          >
+            Стрічка
+          </Link>
+        </nav>
+        {user && <ProfileMenu user={user} onLogout={logout} />}
+      </header>
+
+      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-6">
+        <section className="space-y-3">
+          {activeAnnouncements.map((announcement) => (
+            <AnnouncementBanner
+              key={announcement.id}
+              announcement={announcement}
+              onRead={() => readMutation.mutate(announcement.id)}
+              onDismissTimed={() =>
+                setDismissedTimed((prev) => new Set(prev).add(announcement.id))
+              }
+            />
+          ))}
+        </section>
+
+        <ControlBar
+          type={type}
+          q={q}
+          floor={floor}
+          activeOnly={activeOnly}
+          startDate={startDate}
+          endDate={endDate}
+          floors={floorsQuery.data ?? []}
+          userFloorId={user?.floor_id ?? null}
+          onChange={updateParam}
+        />
+
+        <section>
+          {isLoading && (
+            <p className="py-12 text-center text-sm text-gray-500">
+              Завантажуємо стрічку…
+            </p>
+          )}
+          {!isLoading && visibleItems.length === 0 && (
+            <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-sm text-gray-500">
+              Нічого не знайдено за поточними фільтрами.
+            </div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {visibleItems.map((item) => (
+              <FeedCard
+                key={`${item.type}-${item.id}`}
+                item={item}
+                onOpen={() => openItem(item)}
+              />
+            ))}
+          </div>
+
+          {hasNext && (
+            <div className="mt-6 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setPage((current) => current + 1)}
+                className={
+                  'rounded-md border border-gray-200 bg-white px-4 py-2 ' +
+                  'text-sm font-medium text-gray-700 hover:bg-gray-50'
+                }
+              >
+                Завантажити ще
+              </button>
+            </div>
+          )}
+        </section>
+      </main>
+
+      {(selectedEvent || selectedSharing || eventDetailQuery.isLoading) && (
+        <DetailsModal
+          event={selectedEvent}
+          sharing={selectedSharing}
+          loading={eventDetailQuery.isLoading}
+          actionError={actionError}
+          currentUserId={user?.id ?? null}
+          canModerateItem={(item) =>
+            canModerate(user?.role, user?.floor_id, item.floor_id)
+          }
+          onClose={closeModal}
+          onJoin={(id) => joinMutation.mutate(id)}
+          onLeave={(id) => leaveMutation.mutate(id)}
+          onDeleteEvent={(item) => setPendingDelete(item)}
+          onDeleteSharing={(item) => setPendingDelete(item)}
+        />
+      )}
+
+      {pendingDelete && (
+        <ConfirmDeleteDialog
+          pendingDelete={pendingDelete}
+          isDeleting={
+            deleteEventMutation.isPending || deleteSharingMutation.isPending
+          }
+          onClose={() => setPendingDelete(null)}
+          onConfirm={() => {
+            if (pendingDelete.kind === 'event') {
+              deleteEventMutation.mutate(pendingDelete.id);
+            } else {
+              deleteSharingMutation.mutate(pendingDelete.id);
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AnnouncementBanner({
+  announcement,
+  onRead,
+  onDismissTimed,
+}: {
+  announcement: Announcement;
+  onRead: () => void;
+  onDismissTimed: () => void;
+}) {
+  const expires = announcement.expires_at
+    ? new Date(announcement.expires_at)
+    : null;
+  return (
+    <article className="rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold tracking-wide text-blue-700 uppercase">
+            Оголошення · {announcement.target_type}
+          </p>
+          <h2 className="mt-1 text-base font-semibold text-blue-950">
+            {announcement.title}
+          </h2>
+          <p className="mt-1 text-sm text-blue-900">{announcement.message}</p>
+          {expires && (
+            <p className="mt-2 text-xs text-blue-700">
+              Актуально до {formatDateTime(announcement.expires_at!)}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={expires ? onDismissTimed : onRead}
+          className={
+            'shrink-0 rounded-md border border-blue-300 bg-white px-3 py-1.5 ' +
+            'text-sm font-medium text-blue-700 hover:bg-blue-100'
+          }
+        >
+          Зрозуміло
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function ControlBar({
+  type,
+  q,
+  floor,
+  activeOnly,
+  startDate,
+  endDate,
+  floors,
+  userFloorId,
+  onChange,
+}: {
+  type: FeedType;
+  q: string;
+  floor: string;
+  activeOnly: boolean;
+  startDate: string;
+  endDate: string;
+  floors: { id: number; number: number }[];
+  userFloorId: string | null;
+  onChange: (key: string, value: string | null) => void;
+}) {
+  return (
+    <section className="sticky top-0 z-20 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+      <div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_auto_auto_auto_auto] lg:items-center">
+        <input
+          value={q}
+          onChange={(event) => onChange('q', event.target.value)}
+          placeholder="Пошук за назвою"
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+
+        <div className="flex rounded-md border border-gray-200 bg-gray-50 p-1 text-sm">
+          {[
+            ['all', 'Всі'],
+            ['events', 'Івенти'],
+            ['sharing', 'Шеринг'],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onChange('type', value)}
+              className={
+                'rounded px-3 py-1.5 font-medium ' +
+                (type === value
+                  ? 'bg-white text-blue-700 shadow-sm'
+                  : 'text-gray-600')
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {type === 'events' && (
+          <div className="flex items-center gap-2 text-sm">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => onChange('start', event.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-2"
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => onChange('end', event.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-2"
+            />
+          </div>
+        )}
+
+        {type === 'events' && (
+          <label className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              checked={activeOnly}
+              onChange={(event) =>
+                onChange('active', event.target.checked ? 'true' : null)
+              }
+              className="h-4 w-4 accent-blue-600"
+            />
+            Активні
+          </label>
+        )}
+
+        {type !== 'sharing' && (
+          <select
+            value={floor}
+            onChange={(event) => onChange('floor', event.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="all">Всі поверхи</option>
+            {userFloorId && <option value="mine">Мій поверх</option>}
+            {floors.map((item) => (
+              <option key={item.id} value={item.id}>
+                Поверх {item.number}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <Link
+          to="/feed/create"
+          className="rounded-md bg-blue-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700"
+        >
+          + Створити
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function FeedCard({ item, onOpen }: { item: FeedItem; onOpen: () => void }) {
+  const badge =
+    item.type === 'event'
+      ? 'bg-violet-100 text-violet-800'
+      : 'bg-emerald-100 text-emerald-800';
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={
+        'rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm ' +
+        'transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md'
+      }
+    >
+      <span
+        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${badge}`}
+      >
+        {item.type === 'event' ? 'Івент' : 'Шеринг'}
+      </span>
+      <h3 className="mt-3 line-clamp-2 text-base font-semibold text-gray-950">
+        {item.title}
+      </h3>
+      <div className="mt-4 flex items-center gap-2">
+        <UserAvatar
+          name={item.creator.display_name}
+          photo={item.creator.photo}
+          size={30}
+        />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-gray-700">
+            {item.creator.display_name}
+          </p>
+          <p className="text-xs text-gray-500">
+            {isEvent(item)
+              ? formatDateTime(item.start_time)
+              : formatSharingStatus(item.status)}
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function DetailsModal({
+  event,
+  sharing,
+  loading,
+  actionError,
+  currentUserId,
+  canModerateItem,
+  onClose,
+  onJoin,
+  onLeave,
+  onDeleteEvent,
+  onDeleteSharing,
+}: {
+  event?: SocialEvent;
+  sharing?: SocialSharingRequest;
+  loading: boolean;
+  actionError: string | null;
+  currentUserId: string | null;
+  canModerateItem: (item: FeedItem) => boolean;
+  onClose: () => void;
+  onJoin: (id: number) => void;
+  onLeave: (id: number) => void;
+  onDeleteEvent: (item: PendingDelete) => void;
+  onDeleteSharing: (item: PendingDelete) => void;
+}) {
+  const item = event ?? sharing;
+  const isOwner = item?.creator.id === currentUserId;
+  const canDelete = item ? isOwner || canModerateItem(item) : false;
+  const joined =
+    event?.participants?.some(
+      (participant) => participant.id === currentUserId
+    ) ?? false;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <span className="text-xs font-semibold tracking-wide text-blue-700 uppercase">
+              {event ? 'Івент' : 'Шеринг'}
+            </span>
+            <h2 className="mt-1 text-xl font-semibold text-gray-950">
+              {loading ? 'Завантаження…' : item?.title}
+            </h2>
+          </div>
+          <button
+            className="rounded-full px-2 text-2xl text-gray-400 hover:bg-gray-100"
+            onClick={onClose}
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+
+        {item && (
+          <div className="mt-5 space-y-5">
+            <div className="flex items-center gap-3 rounded-md bg-gray-50 p-3">
+              <UserAvatar
+                name={item.creator.display_name}
+                photo={item.creator.photo}
+                size={38}
+              />
+              <div>
+                <p className="text-sm font-semibold text-gray-800">
+                  {item.creator.display_name}
+                </p>
+                <Link
+                  to={`/users/${item.creator.id}`}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Профіль автора
+                </Link>
+              </div>
+            </div>
+
+            {event && (
+              <>
+                <p className="text-sm leading-6 text-gray-700">
+                  {event.description}
+                </p>
+                <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
+                  <InfoItem
+                    label="Початок"
+                    value={formatDateTime(event.start_time)}
+                  />
+                  <InfoItem
+                    label="Кінець"
+                    value={formatDateTime(event.end_time)}
+                  />
+                  <InfoItem
+                    label="Локація"
+                    value={event.room_name ?? event.custom_location ?? 'Поверх'}
+                  />
+                  <InfoItem
+                    label="Учасники"
+                    value={formatParticipantLimit(event)}
+                  />
+                </dl>
+                {event.participants && (
+                  <div>
+                    <h3 className="mb-2 text-sm font-semibold text-gray-700">
+                      Учасники
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {event.participants.map((participant) => (
+                        <span
+                          key={participant.id}
+                          className="flex items-center gap-2 rounded-full bg-gray-100 px-2 py-1 text-xs"
+                        >
+                          <UserAvatar
+                            name={participant.display_name}
+                            photo={participant.photo}
+                            size={22}
+                          />
+                          {participant.display_name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {sharing && (
+              <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
+                <InfoItem
+                  label="Статус"
+                  value={formatSharingStatus(sharing.status)}
+                />
+                <InfoItem
+                  label="Створено"
+                  value={formatDateTime(sharing.created_at)}
+                />
+              </dl>
+            )}
+
+            {actionError && (
+              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                {actionError}
+              </p>
+            )}
+
+            <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">
+              {event && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    joined ? onLeave(event.id) : onJoin(event.id)
+                  }
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  {joined ? 'Відмовитися' : 'Приєднатися'}
+                </button>
+              )}
+              {canDelete && event && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onDeleteEvent({
+                      kind: 'event',
+                      id: event.id,
+                      title: event.title,
+                    })
+                  }
+                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                >
+                  Видалити
+                </button>
+              )}
+              {canDelete && sharing && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onDeleteSharing({
+                      kind: 'sharing',
+                      id: sharing.id,
+                      title: sharing.title,
+                    })
+                  }
+                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                >
+                  Видалити
+                </button>
+              )}
+              {isOwner && (
+                <button
+                  type="button"
+                  disabled
+                  className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-400"
+                >
+                  Редагувати
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDeleteDialog({
+  pendingDelete,
+  isDeleting,
+  onClose,
+  onConfirm,
+}: {
+  pendingDelete: PendingDelete;
+  isDeleting: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const label = pendingDelete.kind === 'event' ? 'подію' : 'запит на шеринг';
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-lg border border-red-100 bg-white p-5 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex gap-4">
+          <div
+            className={
+              'flex h-11 w-11 shrink-0 items-center justify-center rounded-full ' +
+              'bg-red-100 text-lg font-bold text-red-700'
+            }
+          >
+            !
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-gray-950">
+              Видалити {label}?
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-gray-600">
+              «{pendingDelete.title}» буде прибрано зі стрічки. Цю дію не можна
+              скасувати через інтерфейс.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+            className={
+              'rounded-md border border-gray-200 px-4 py-2 text-sm font-medium ' +
+              'text-gray-700 hover:bg-gray-50 disabled:opacity-60'
+            }
+          >
+            Залишити
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className={
+              'rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white ' +
+              'hover:bg-red-700 disabled:bg-gray-300'
+            }
+          >
+            {isDeleting ? 'Видаляємо…' : 'Видалити'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-medium tracking-wide text-gray-400 uppercase">
+        {label}
+      </dt>
+      <dd className="mt-1 font-medium text-gray-800">{value}</dd>
+    </div>
+  );
+}

@@ -3,6 +3,8 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import MapPage from './pages/MapPage';
 import ResourceBookingPage from './pages/ResourceBookingPage';
+import SocialCreatePage from './pages/SocialCreatePage';
+import SocialFeedPage from './pages/SocialFeedPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuthStore } from './store/authStore';
@@ -46,7 +48,23 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route
+        path="/feed"
+        element={
+          <ProtectedRoute>
+            <SocialFeedPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/feed/create"
+        element={
+          <ProtectedRoute>
+            <SocialCreatePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/map" replace />} />
     </Routes>
   );
 }

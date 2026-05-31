@@ -525,7 +525,7 @@ export default function ResourceBookingPage() {
     return (
       <ResourcePageMessage
         title="Ресурс не знайдено"
-        action={<Link to="/">Повернутися до мапи</Link>}
+        action={<Link to="/map">Повернутися до мапи</Link>}
       />
     );
   }
