@@ -35,6 +35,7 @@ import type {
   UserProfile,
   UserProfileEvent,
   UserProfileSharingRequest,
+  UserProfileUpdatePayload,
 } from '../types/users';
 
 type ActivityTab = 'hosted' | 'going';
@@ -157,6 +158,7 @@ export default function UserProfilePage() {
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const updateCurrentUser = useAuthStore((state) => state.updateUser);
   const [activeTab, setActiveTab] = useState<ActivityTab>('hosted');
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -202,9 +204,15 @@ export default function UserProfilePage() {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: (payload: { status?: string; bio?: string }) =>
+    mutationFn: (payload: UserProfileUpdatePayload) =>
       updateUserProfile(targetUserId!, payload),
-    onSuccess: async () => {
+    onSuccess: async (updatedProfile) => {
+      if (currentUser?.id === updatedProfile.id) {
+        updateCurrentUser({
+          full_name: updatedProfile.display_name,
+          photo: updatedProfile.photo,
+        });
+      }
       await queryClient.invalidateQueries({
         queryKey: ['user-profile', targetUserId],
       });
@@ -447,22 +455,115 @@ function ProfileHeader({
   isPrivateMode: boolean;
   canEdit: boolean;
   saving: boolean;
-  onSave: (payload: { status?: string; bio?: string }) => Promise<UserProfile>;
+  onSave: (payload: UserProfileUpdatePayload) => Promise<UserProfile>;
 }) {
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(profile.display_name);
+
+  async function saveName() {
+    const nextName = nameDraft.trim();
+    if (!nextName) return;
+    await onSave({ full_name: nextName });
+    setEditingName(false);
+  }
+
+  async function uploadPhoto(file: File | undefined) {
+    if (!file) return;
+    await onSave({ photo: file });
+  }
+
   return (
     <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
         <div className="flex min-w-0 gap-4">
-          <UserAvatar
-            name={profile.display_name}
-            photo={profile.photo}
-            size={96}
-          />
+          <div className="relative h-24 w-24 shrink-0">
+            <UserAvatar
+              name={profile.display_name}
+              photo={profile.photo}
+              size={96}
+            />
+            {canEdit && (
+              <label
+                className={
+                  'absolute right-0 bottom-0 flex h-8 w-8 cursor-pointer ' +
+                  'items-center justify-center rounded-full border ' +
+                  'border-gray-200 bg-white text-sm font-semibold ' +
+                  'text-gray-700 shadow-sm hover:bg-blue-50 hover:text-blue-700'
+                }
+                title="Змінити аватар"
+                aria-label="Змінити аватар"
+              >
+                ✎
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={saving}
+                  onChange={(event) =>
+                    void uploadPhoto(event.target.files?.[0])
+                  }
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-2xl font-semibold text-gray-950">
-                {profile.display_name}
-              </h1>
+              {editingName ? (
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <input
+                    value={nameDraft}
+                    onChange={(event) => setNameDraft(event.target.value)}
+                    className={
+                      'min-w-0 rounded-md border border-gray-300 px-3 py-2 ' +
+                      'text-xl font-semibold text-gray-950 outline-none ' +
+                      'focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void saveName()}
+                    disabled={saving || !nameDraft.trim()}
+                    className={
+                      'rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold ' +
+                      'text-white hover:bg-blue-700 disabled:bg-gray-300'
+                    }
+                  >
+                    Зберегти
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNameDraft(profile.display_name);
+                      setEditingName(false);
+                    }}
+                    disabled={saving}
+                    className={
+                      'rounded-md border border-gray-200 px-3 py-2 text-sm ' +
+                      'font-medium text-gray-700 hover:bg-gray-50'
+                    }
+                  >
+                    Скасувати
+                  </button>
+                </div>
+              ) : (
+                <h1 className="truncate text-2xl font-semibold text-gray-950">
+                  {profile.display_name}
+                </h1>
+              )}
+              {canEdit && !editingName && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNameDraft(profile.display_name);
+                    setEditingName(true);
+                  }}
+                  className="rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-blue-700"
+                  aria-label="Редагувати ім'я"
+                  title="Редагувати ім'я"
+                >
+                  ✎
+                </button>
+              )}
               {isPrivateMode && (
                 <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
                   Мій профіль

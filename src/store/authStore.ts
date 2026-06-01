@@ -27,6 +27,7 @@ interface AuthState {
     user: User;
   }) => void;
   setAccessToken: (accessToken: string) => void;
+  updateUser: (updates: Partial<User>) => void;
   clearSession: () => void;
   logout: () => Promise<void>;
   bootstrap: () => Promise<void>;
@@ -44,6 +45,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ accessToken, user, isBootstrapped: true });
   },
   setAccessToken: (accessToken) => set({ accessToken }),
+  updateUser: (updates) => {
+    const user = get().user;
+    if (!user) return;
+    const updatedUser = { ...user, ...updates };
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+    set({ user: updatedUser });
+  },
   clearSession: () => {
     localStorage.removeItem(REFRESH_STORAGE_KEY);
     localStorage.removeItem(USER_STORAGE_KEY);

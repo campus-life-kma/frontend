@@ -42,6 +42,8 @@ export interface UserSocialActivity {
 }
 
 export interface UserProfileUpdatePayload {
+  full_name?: string;
+  photo?: File;
   status?: string;
   bio?: string;
 }
