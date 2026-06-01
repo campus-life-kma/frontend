@@ -1,4 +1,7 @@
+import axios from 'axios';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { RoomOnMap } from '../types/locations';
+import { checkIn } from '../api/presence';
 import UserAvatar from './UserAvatar';
 import ResourceTypeIcon from './ResourceTypeIcon';
 
@@ -15,7 +18,23 @@ const ROOM_TYPE_LABEL: Record<string, string> = {
   STORAGE: 'Склад',
 };
 
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const detail = (error.response?.data as { detail?: string } | undefined)
+      ?.detail;
+    if (detail) return detail;
+  }
+  return fallback;
+}
+
 export default function RoomDetailsPanel({ room }: RoomDetailsPanelProps) {
+  const queryClient = useQueryClient();
+
+  const checkInMutation = useMutation({
+    mutationFn: (roomId: number) => checkIn(roomId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['floor-map'] }),
+  });
+
   if (!room) {
     return (
       <p className="text-sm text-gray-500">
@@ -26,6 +45,7 @@ export default function RoomDetailsPanel({ room }: RoomDetailsPanelProps) {
 
   const typeLabel = ROOM_TYPE_LABEL[room.room_type] ?? room.room_type;
   const hasEvents = room.active_events.length > 0;
+  const canCheckIn = !room.is_blocked;
 
   return (
     <div id={`room-details-${room.id}`} className="flex flex-col gap-4 text-sm">
@@ -119,6 +139,32 @@ export default function RoomDetailsPanel({ room }: RoomDetailsPanelProps) {
             ))}
           </ul>
         </section>
+      )}
+
+      {canCheckIn && (
+        <footer className="flex flex-col gap-2 border-t border-gray-100 pt-4">
+          <button
+            id="room-check-in"
+            type="button"
+            onClick={() => checkInMutation.mutate(room.id)}
+            disabled={checkInMutation.isPending}
+            className={
+              'w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white ' +
+              'transition hover:bg-blue-700 disabled:cursor-not-allowed ' +
+              'disabled:bg-blue-300'
+            }
+          >
+            {checkInMutation.isPending ? 'Відмічаємо…' : 'Відмітитися тут'}
+          </button>
+          {checkInMutation.error && (
+            <p role="alert" className="text-xs text-red-700">
+              {extractErrorMessage(
+                checkInMutation.error,
+                'Дію не вдалося виконати.'
+              )}
+            </p>
+          )}
+        </footer>
       )}
     </div>
   );
