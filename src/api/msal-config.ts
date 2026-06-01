@@ -1,7 +1,7 @@
 import {
   PublicClientApplication,
   type Configuration,
-  type PopupRequest,
+  type RedirectRequest,
 } from '@azure/msal-browser';
 
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID;
@@ -13,6 +13,7 @@ const msalConfig: Configuration = {
     clientId,
     authority: `https://login.microsoftonline.com/${tenantId}`,
     redirectUri,
+    navigateToLoginRequestUrl: false,
   },
   cache: {
     cacheLocation: 'sessionStorage',
@@ -22,7 +23,7 @@ const msalConfig: Configuration = {
 
 export const msalInstance = new PublicClientApplication(msalConfig);
 
-export const msalLoginRequest: PopupRequest = {
+export const msalLoginRequest: RedirectRequest = {
   scopes: ['User.Read'],
   prompt: 'select_account',
 };
