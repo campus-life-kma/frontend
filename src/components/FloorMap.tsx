@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch';
-import { iconForResourceName } from './resource-icons';
 import { resolveMediaUrl } from '../utils/media';
 import type {
   FloorMapData,
@@ -154,11 +153,10 @@ function buildOverflowNode(count: number, cx: number, cy: number): SVGElement {
 }
 
 // One on-map icon per distinct resource type (two stoves + one washer => a
-// stove icon and a washer icon). Keeps the server icon and aggregates names.
+// stove icon and a washer icon). Uses the server-provided icon per type.
 interface ResourceIcon {
   key: string;
   iconUrl: string | null;
-  fallbackName: string;
   names: string[];
   allBlocked: boolean;
 }
@@ -176,7 +174,6 @@ function dedupeResources(resources: ResourceOnMap[]): ResourceIcon[] {
       byType.set(key, {
         key,
         iconUrl: resolveMediaUrl(resource.resource_icon ?? null),
-        fallbackName: resource.name,
         names: [resource.name],
         allBlocked: resource.is_blocked,
       });
@@ -189,7 +186,9 @@ function buildResourceNode(
   icon: ResourceIcon,
   cx: number,
   cy: number
-): SVGElement {
+): SVGElement | null {
+  if (!icon.iconUrl) return null;
+
   const wrapper = document.createElementNS(SVG_NS, 'g');
   wrapper.setAttribute('data-resource-type', icon.key);
   wrapper.style.pointerEvents = 'auto';
@@ -199,32 +198,20 @@ function buildResourceNode(
   title.textContent = icon.allBlocked ? `${label} (зайнятий)` : label;
   wrapper.appendChild(title);
 
-  if (icon.iconUrl) {
-    const image = document.createElementNS(SVG_NS, 'image');
-    image.setAttributeNS(
-      'http://www.w3.org/1999/xlink',
-      'xlink:href',
-      icon.iconUrl
-    );
-    image.setAttribute('href', icon.iconUrl);
-    image.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
-    image.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
-    image.setAttribute('width', String(RESOURCE_SIZE));
-    image.setAttribute('height', String(RESOURCE_SIZE));
-    image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    if (icon.allBlocked) image.setAttribute('opacity', '0.4');
-    wrapper.appendChild(image);
-  } else {
-    const iconSvg = document.createElementNS(SVG_NS, 'svg');
-    iconSvg.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
-    iconSvg.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
-    iconSvg.setAttribute('width', String(RESOURCE_SIZE));
-    iconSvg.setAttribute('height', String(RESOURCE_SIZE));
-    iconSvg.setAttribute('viewBox', '0 0 24 24');
-    iconSvg.style.color = icon.allBlocked ? '#9ca3af' : '#374151';
-    iconSvg.innerHTML = iconForResourceName(icon.fallbackName);
-    wrapper.appendChild(iconSvg);
-  }
+  const image = document.createElementNS(SVG_NS, 'image');
+  image.setAttributeNS(
+    'http://www.w3.org/1999/xlink',
+    'xlink:href',
+    icon.iconUrl
+  );
+  image.setAttribute('href', icon.iconUrl);
+  image.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
+  image.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
+  image.setAttribute('width', String(RESOURCE_SIZE));
+  image.setAttribute('height', String(RESOURCE_SIZE));
+  image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  if (icon.allBlocked) image.setAttribute('opacity', '0.4');
+  wrapper.appendChild(image);
 
   return wrapper;
 }
@@ -397,7 +384,8 @@ function renderInventoryBand(
   const startX = band.cx - rowWidth / 2 + RESOURCE_SIZE / 2;
   visible.forEach((icon, index) => {
     const rx = startX + index * slotWidth;
-    overlayGroup.appendChild(buildResourceNode(icon, rx, band.y));
+    const node = buildResourceNode(icon, rx, band.y);
+    if (node) overlayGroup.appendChild(node);
   });
 }
 
