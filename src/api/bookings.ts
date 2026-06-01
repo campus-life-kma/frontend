@@ -5,11 +5,18 @@ import type {
   ResourceScheduleBooking,
 } from '../types/bookings';
 
+interface ResourceScheduleParams {
+  start_date?: string;
+  end_date?: string;
+}
+
 export async function getResourceSchedule(
-  resourceId: string | number
+  resourceId: string | number,
+  params?: ResourceScheduleParams
 ): Promise<ResourceScheduleBooking[]> {
   const { data } = await api.get<ResourceScheduleBooking[]>(
-    `/resources/${resourceId}/schedule/`
+    `/resources/${resourceId}/schedule/`,
+    { params }
   );
   return data;
 }

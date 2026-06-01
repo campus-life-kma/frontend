@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch';
-import { iconForResourceName } from './resource-icons';
 import { resolveMediaUrl } from '../utils/media';
 import type {
   FloorMapData,
@@ -158,7 +157,6 @@ function buildOverflowNode(count: number, cx: number, cy: number): SVGElement {
 interface ResourceIcon {
   key: string;
   iconUrl: string | null;
-  fallbackName: string;
   names: string[];
   allBlocked: boolean;
 }
@@ -176,7 +174,6 @@ function dedupeResources(resources: ResourceOnMap[]): ResourceIcon[] {
       byType.set(key, {
         key,
         iconUrl: resolveMediaUrl(resource.resource_icon ?? null),
-        fallbackName: resource.name,
         names: [resource.name],
         allBlocked: resource.is_blocked,
       });
@@ -215,15 +212,24 @@ function buildResourceNode(
     if (icon.allBlocked) image.setAttribute('opacity', '0.4');
     wrapper.appendChild(image);
   } else {
-    const iconSvg = document.createElementNS(SVG_NS, 'svg');
-    iconSvg.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
-    iconSvg.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
-    iconSvg.setAttribute('width', String(RESOURCE_SIZE));
-    iconSvg.setAttribute('height', String(RESOURCE_SIZE));
-    iconSvg.setAttribute('viewBox', '0 0 24 24');
-    iconSvg.style.color = icon.allBlocked ? '#9ca3af' : '#374151';
-    iconSvg.innerHTML = iconForResourceName(icon.fallbackName);
-    wrapper.appendChild(iconSvg);
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('cx', String(cx));
+    circle.setAttribute('cy', String(cy));
+    circle.setAttribute('r', String(RESOURCE_SIZE / 2));
+    circle.setAttribute('fill', icon.allBlocked ? '#e5e7eb' : '#f3f4f6');
+    circle.setAttribute('stroke', '#d1d5db');
+    circle.setAttribute('stroke-width', '1');
+    wrapper.appendChild(circle);
+
+    const text = document.createElementNS(SVG_NS, 'text');
+    text.textContent = label.trim()[0]?.toUpperCase() ?? '?';
+    text.setAttribute('x', String(cx));
+    text.setAttribute('y', String(cy + 4));
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-size', '10');
+    text.setAttribute('font-weight', '700');
+    text.setAttribute('fill', '#6b7280');
+    wrapper.appendChild(text);
   }
 
   return wrapper;

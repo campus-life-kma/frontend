@@ -41,7 +41,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setSession: ({ accessToken, refreshToken, user }) => {
     localStorage.setItem(REFRESH_STORAGE_KEY, refreshToken);
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-    set({ accessToken, user });
+    set({ accessToken, user, isBootstrapped: true });
   },
   setAccessToken: (accessToken) => set({ accessToken }),
   clearSession: () => {

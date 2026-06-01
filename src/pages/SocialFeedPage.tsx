@@ -21,6 +21,7 @@ import {
 import { getFloors } from '../api/locations';
 import UserAvatar from '../components/UserAvatar';
 import ProfileMenu from '../components/ProfileMenu';
+import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 import type { Announcement } from '../types/announcements';
 import type {
@@ -30,6 +31,7 @@ import type {
 } from '../types/social';
 
 type FeedType = 'all' | 'events' | 'sharing';
+type FeedOrdering = 'created_at' | 'start_time';
 type PendingDelete =
   | { kind: 'event'; id: number; title: string }
   | { kind: 'sharing'; id: number; title: string };
@@ -72,16 +74,10 @@ function isSharing(item: FeedItem): item is SocialSharingRequest {
   return item.type === 'sharing_request';
 }
 
-function getItemSortTime(item: FeedItem): number {
-  if (isEvent(item)) return new Date(item.start_time).getTime();
-  return new Date(item.created_at).getTime();
-}
-
-function compareFeedItems(a: FeedItem, b: FeedItem): number {
-  if (isSharing(a) && isSharing(b)) {
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-  }
-  return getItemSortTime(a) - getItemSortTime(b);
+function toApiFeedType(type: FeedType): 'all' | 'event' | 'sharing_request' {
+  if (type === 'events') return 'event';
+  if (type === 'sharing') return 'sharing_request';
+  return 'all';
 }
 
 function normalizeError(error: unknown): string {
@@ -129,13 +125,31 @@ export default function SocialFeedPage() {
   const activeOnly = searchParams.get('active') === 'true';
   const startDate = searchParams.get('start') ?? '';
   const endDate = searchParams.get('end') ?? '';
+  const ordering =
+    (searchParams.get('ordering') as FeedOrdering | null) ?? 'created_at';
   const eventId = Number(searchParams.get('eventId'));
   const sharingId = Number(searchParams.get('sharingId'));
+  const mapFloorId =
+    searchParams.get('mapFloorId') ??
+    (floor === 'mine' ? user?.floor_id : floor !== 'all' ? floor : null);
+  const mapPath = mapFloorId ? `/?floorId=${mapFloorId}` : '/';
+
+  const feedFilters = useMemo(
+    () => ({
+      item_type: toApiFeedType(type),
+      start_date: type === 'events' ? startDate : undefined,
+      end_date: type === 'events' ? endDate : undefined,
+      is_active: type === 'events' && activeOnly ? true : undefined,
+      floor_id: floor === 'all' ? undefined : floor === 'mine' ? 'my' : floor,
+      ordering: type === 'sharing' ? 'start_time' : ordering,
+    }),
+    [activeOnly, endDate, floor, ordering, startDate, type]
+  );
 
   const feedQueries = useQueries({
     queries: Array.from({ length: page }, (_, index) => ({
-      queryKey: ['feed', index + 1],
-      queryFn: () => getFeed(index + 1),
+      queryKey: ['feed', index + 1, feedFilters],
+      queryFn: () => getFeed(index + 1, feedFilters),
     })),
   });
 
@@ -181,40 +195,19 @@ export default function SocialFeedPage() {
   const visibleItems = useMemo(() => {
     const lowerQ = q.trim().toLowerCase();
     const now = new Date();
-    return feedItems
-      .filter((item) => {
-        if (type === 'events' && !isEvent(item)) return false;
-        if (type === 'sharing' && !isSharing(item)) return false;
-        if (lowerQ && !item.title.toLowerCase().includes(lowerQ)) return false;
-        if (isEvent(item) && floor !== 'all') {
-          const targetFloor = floor === 'mine' ? user?.floor_id : floor;
-          if (String(item.floor_id ?? '') !== String(targetFloor ?? '')) {
-            return false;
-          }
-        }
-        if (isEvent(item)) {
-          if (activeOnly) {
-            const start = new Date(item.start_time);
-            const end = new Date(item.end_time);
-            if (!(start <= now && end >= now)) return false;
-          }
-          if (startDate && toInputDate(item.start_time) < startDate)
-            return false;
-          if (endDate && toInputDate(item.start_time) > endDate) return false;
-        }
-        return true;
-      })
-      .sort((a, b) => compareFeedItems(a, b));
-  }, [
-    activeOnly,
-    endDate,
-    feedItems,
-    floor,
-    q,
-    startDate,
-    type,
-    user?.floor_id,
-  ]);
+    return feedItems.filter((item) => {
+      if (lowerQ && !item.title.toLowerCase().includes(lowerQ)) return false;
+      if (type !== 'events' || !isEvent(item)) return true;
+      if (activeOnly) {
+        const start = new Date(item.start_time);
+        const end = new Date(item.end_time);
+        if (!(start <= now && end >= now)) return false;
+      }
+      if (startDate && toInputDate(item.start_time) < startDate) return false;
+      if (endDate && toInputDate(item.start_time) > endDate) return false;
+      return true;
+    });
+  }, [activeOnly, endDate, feedItems, q, startDate, type]);
 
   const readMutation = useMutation({
     mutationFn: markAnnouncementRead,
@@ -269,9 +262,7 @@ export default function SocialFeedPage() {
       next.delete('start');
       next.delete('end');
     }
-    if (key === 'type' && value === 'sharing') {
-      next.delete('floor');
-    }
+    setPage(1);
     setSearchParams(next);
   }
 
@@ -300,20 +291,25 @@ export default function SocialFeedPage() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
-        <nav className="flex items-center gap-2 text-sm">
-          <Link
-            className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
-            to="/map"
-          >
-            Мапа
-          </Link>
-          <Link
-            className="rounded-md bg-blue-50 px-3 py-1.5 font-medium text-blue-700"
-            to="/feed"
-          >
-            Стрічка
-          </Link>
-        </nav>
+        <div className="flex items-center gap-4">
+          <h1 className="text-lg font-semibold text-gray-900">
+            <Link to={mapPath}>{APP_TITLE}</Link>
+          </h1>
+          <nav className="flex items-center gap-2 text-sm">
+            <Link
+              className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
+              to={mapPath}
+            >
+              Мапа
+            </Link>
+            <Link
+              className="rounded-md bg-blue-50 px-3 py-1.5 font-medium text-blue-700"
+              to="/feed"
+            >
+              Стрічка
+            </Link>
+          </nav>
+        </div>
         {user && <ProfileMenu user={user} onLogout={logout} />}
       </header>
 
@@ -338,6 +334,7 @@ export default function SocialFeedPage() {
           activeOnly={activeOnly}
           startDate={startDate}
           endDate={endDate}
+          ordering={ordering}
           floors={floorsQuery.data ?? []}
           userFloorId={user?.floor_id ?? null}
           onChange={updateParam}
@@ -471,6 +468,7 @@ function ControlBar({
   activeOnly,
   startDate,
   endDate,
+  ordering,
   floors,
   userFloorId,
   onChange,
@@ -481,13 +479,23 @@ function ControlBar({
   activeOnly: boolean;
   startDate: string;
   endDate: string;
+  ordering: FeedOrdering;
   floors: { id: number; number: number }[];
   userFloorId: string | null;
   onChange: (key: string, value: string | null) => void;
 }) {
+  const [eventFiltersOpen, setEventFiltersOpen] = useState(false);
+  const hasEventFilters = Boolean(
+    floor !== 'all' || startDate || endDate || activeOnly
+  );
+
   return (
     <section className="sticky top-0 z-20 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-      <div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_auto_auto_auto_auto] lg:items-center">
+      <div
+        className={
+          'grid gap-3 lg:grid-cols-[1fr_auto_auto_auto] lg:items-center'
+        }
+      >
         <input
           value={q}
           onChange={(event) => onChange('q', event.target.value)}
@@ -504,7 +512,9 @@ function ControlBar({
             <button
               key={value}
               type="button"
-              onClick={() => onChange('type', value)}
+              onClick={() => {
+                onChange('type', value);
+              }}
               className={
                 'rounded px-3 py-1.5 font-medium ' +
                 (type === value
@@ -517,56 +527,132 @@ function ControlBar({
           ))}
         </div>
 
-        {type === 'events' && (
-          <div className="flex items-center gap-2 text-sm">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(event) => onChange('start', event.target.value)}
-              className="rounded-md border border-gray-300 px-2 py-2"
-            />
-            <input
-              type="date"
-              value={endDate}
-              onChange={(event) => onChange('end', event.target.value)}
-              className="rounded-md border border-gray-300 px-2 py-2"
-            />
-          </div>
-        )}
-
-        {type === 'events' && (
-          <label className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm">
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(event) =>
-                onChange('active', event.target.checked ? 'true' : null)
-              }
-              className="h-4 w-4 accent-blue-600"
-            />
-            Активні
-          </label>
-        )}
-
-        {type !== 'sharing' && (
-          <select
-            value={floor}
-            onChange={(event) => onChange('floor', event.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+        <div className="relative min-h-10">
+          <button
+            type="button"
+            onClick={() => setEventFiltersOpen((open) => !open)}
+            className={
+              'flex h-10 w-full items-center justify-center rounded-md ' +
+              'border border-gray-200 px-3 text-sm font-medium ' +
+              (eventFiltersOpen || hasEventFilters
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-50')
+            }
           >
-            <option value="all">Всі поверхи</option>
-            {userFloorId && <option value="mine">Мій поверх</option>}
-            {floors.map((item) => (
-              <option key={item.id} value={item.id}>
-                Поверх {item.number}
-              </option>
-            ))}
-          </select>
-        )}
+            Фільтри{hasEventFilters ? ' •' : ''}
+          </button>
+
+          {eventFiltersOpen && (
+            <div
+              className={
+                'mt-2 rounded-lg border border-gray-200 bg-white p-4 ' +
+                'shadow-xl sm:absolute sm:top-full sm:right-0 sm:z-30 ' +
+                (type === 'events' ? 'sm:w-[min(540px,90vw)]' : 'sm:w-56')
+              }
+            >
+              <div
+                className={
+                  'grid gap-3 ' + (type === 'events' ? 'sm:grid-cols-2' : '')
+                }
+              >
+                <label className="grid gap-1 text-xs font-medium text-gray-500">
+                  Поверх
+                  <select
+                    value={floor}
+                    onChange={(event) => onChange('floor', event.target.value)}
+                    className={
+                      'h-10 rounded-md border border-gray-300 px-3 text-sm ' +
+                      'font-normal text-gray-800'
+                    }
+                  >
+                    <option value="all">Всі поверхи</option>
+                    {userFloorId && <option value="mine">Мій поверх</option>}
+                    {floors.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        Поверх {item.number}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {type === 'events' && (
+                  <>
+                    <label className="grid gap-1 text-xs font-medium text-gray-500">
+                      Сортування
+                      <select
+                        value={ordering}
+                        onChange={(event) =>
+                          onChange('ordering', event.target.value)
+                        }
+                        className={
+                          'h-10 rounded-md border border-gray-300 px-3 ' +
+                          'text-sm font-normal text-gray-800'
+                        }
+                      >
+                        <option value="created_at">За датою створення</option>
+                        <option value="start_time">За часом початку</option>
+                      </select>
+                    </label>
+
+                    <label className="grid gap-1 text-xs font-medium text-gray-500">
+                      Стан
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onChange('active', activeOnly ? null : 'true')
+                        }
+                        className={
+                          'flex h-10 items-center gap-2 rounded-md border ' +
+                          'border-gray-200 px-3 text-left text-sm ' +
+                          'font-normal text-gray-800'
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={activeOnly}
+                          readOnly
+                          className="h-4 w-4 accent-blue-600"
+                        />
+                        Активні зараз
+                      </button>
+                    </label>
+
+                    <label className="grid gap-1 text-xs font-medium text-gray-500">
+                      Початок
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(event) =>
+                          onChange('start', event.target.value)
+                        }
+                        className="h-10 rounded-md border border-gray-300 px-2 text-sm"
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-xs font-medium text-gray-500">
+                      Кінець
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(event) =>
+                          onChange('end', event.target.value)
+                        }
+                        className="h-10 rounded-md border border-gray-300 px-2 text-sm"
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <Link
           to="/feed/create"
-          className="rounded-md bg-blue-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700"
+          className={
+            'rounded-md bg-blue-600 px-4 py-2 text-center text-sm ' +
+            'font-semibold whitespace-nowrap text-white hover:bg-blue-700'
+          }
         >
           + Створити
         </Link>
@@ -691,7 +777,7 @@ function DetailsModal({
                   {item.creator.display_name}
                 </p>
                 <Link
-                  to={`/users/${item.creator.id}`}
+                  to={`/profile/${item.creator.id}`}
                   className="text-sm text-blue-600 hover:underline"
                 >
                   Профіль автора

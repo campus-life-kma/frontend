@@ -19,6 +19,7 @@ import { getFloorMapData, getFloors } from '../api/locations';
 import UserAvatar from '../components/UserAvatar';
 import ResourceTypeIcon from '../components/ResourceTypeIcon';
 import ProfileMenu from '../components/ProfileMenu';
+import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 import type { Booking, ResourceScheduleBooking } from '../types/bookings';
 import type { ResourceOnMap, RoomOnMap, UserOnMap } from '../types/locations';
@@ -224,7 +225,7 @@ function useResourceContext(resourceId: number | null) {
       room: state.room,
       floorId: state.floorId,
       floorNumber: state.floorNumber,
-      dormitoryName: state.dormitoryName ?? 'Campus Life',
+      dormitoryName: state.dormitoryName ?? APP_TITLE,
     };
   }, [resourceId, state]);
 
@@ -306,10 +307,21 @@ export default function ResourceBookingPage() {
       Array.from({ length: DAYS_AHEAD }, (_, index) => addDays(today, index)),
     [today]
   );
+  const scheduleStartDate = toDateKey(today);
+  const scheduleEndDate = toDateKey(days.at(-1) ?? today);
 
   const scheduleQuery = useQuery({
-    queryKey: ['resource-schedule', numericResourceId],
-    queryFn: () => getResourceSchedule(numericResourceId),
+    queryKey: [
+      'resource-schedule',
+      numericResourceId,
+      scheduleStartDate,
+      scheduleEndDate,
+    ],
+    queryFn: () =>
+      getResourceSchedule(numericResourceId, {
+        start_date: scheduleStartDate,
+        end_date: scheduleEndDate,
+      }),
     enabled: !!context && Number.isFinite(numericResourceId),
     refetchInterval: 60 * 1000,
   });
@@ -525,7 +537,7 @@ export default function ResourceBookingPage() {
     return (
       <ResourcePageMessage
         title="Ресурс не знайдено"
-        action={<Link to="/map">Повернутися до мапи</Link>}
+        action={<Link to="/">Повернутися до мапи</Link>}
       />
     );
   }
@@ -533,16 +545,21 @@ export default function ResourceBookingPage() {
   return (
     <div className="flex h-screen flex-col bg-gray-50 text-gray-900">
       <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className={
-            'rounded-md border border-gray-200 px-3 py-1.5 text-sm ' +
-            'font-medium text-gray-700 transition hover:bg-gray-50'
-          }
-        >
-          Назад
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => navigate(`/?floorId=${context.floorId}`)}
+            className={
+              'rounded-md border border-gray-200 px-3 py-1.5 text-sm ' +
+              'font-medium text-gray-700 transition hover:bg-gray-50'
+            }
+          >
+            Назад
+          </button>
+          <h1 className="text-lg font-semibold text-gray-900">
+            <Link to={`/?floorId=${context.floorId}`}>{APP_TITLE}</Link>
+          </h1>
+        </div>
         {user && <ProfileMenu user={user} onLogout={logout} />}
       </header>
 
@@ -960,7 +977,7 @@ function BookingBlock({
         </button>
         {booking.user?.id && (
           <Link
-            to={`/users/${booking.user.id}`}
+            to={`/profile/${booking.user.id}`}
             className={
               'hidden shrink-0 rounded px-1.5 py-1 text-[11px] font-medium ' +
               'text-gray-600 group-hover:block hover:bg-white/70'
@@ -1126,7 +1143,7 @@ function BookingModal({
             <div className="flex justify-between gap-2">
               {selectedBooking.user?.id ? (
                 <Link
-                  to={`/users/${selectedBooking.user.id}`}
+                  to={`/profile/${selectedBooking.user.id}`}
                   className={
                     'rounded-md border border-gray-200 px-4 py-2 text-sm ' +
                     'font-medium text-gray-700 hover:bg-gray-50'

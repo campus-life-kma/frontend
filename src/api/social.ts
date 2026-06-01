@@ -7,13 +7,44 @@ import type {
   SocialSharingRequest,
 } from '../types/social';
 
-export async function getFeed(page: number): Promise<FeedResponse> {
-  const { data } = await api.get<FeedResponse>(`/feed/${page}/`);
+export interface FeedFilters {
+  item_type?: 'all' | 'event' | 'sharing_request';
+  start_date?: string;
+  end_date?: string;
+  is_active?: boolean;
+  floor_id?: string;
+  ordering?: 'created_at' | 'start_time';
+}
+
+export async function getFeed(
+  page: number,
+  filters: FeedFilters = {}
+): Promise<FeedResponse> {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    params.set(key, String(value));
+  });
+
+  const query = params.toString();
+  const { data } = await api.get<FeedResponse>(
+    `/feed/${page}/${query ? `?${query}` : ''}`
+  );
   return data;
 }
 
 export async function getEvent(eventId: number): Promise<SocialEvent> {
   const { data } = await api.get<SocialEvent>(`/events/${eventId}/`);
+  return data;
+}
+
+export async function getSharingRequest(
+  requestId: number
+): Promise<SocialSharingRequest> {
+  const { data } = await api.get<SocialSharingRequest>(
+    `/sharing-requests/${requestId}/`
+  );
   return data;
 }
 

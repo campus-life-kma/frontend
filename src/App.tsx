@@ -6,6 +6,7 @@ import ResourceBookingPage from './pages/ResourceBookingPage';
 import SocialCreatePage from './pages/SocialCreatePage';
 import SocialFeedPage from './pages/SocialFeedPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
+import UserProfilePage from './pages/UserProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuthStore } from './store/authStore';
 
@@ -64,7 +65,31 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/map" replace />} />
+      <Route
+        path="/profile/me"
+        element={
+          <ProtectedRoute>
+            <UserProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile/:userId"
+        element={
+          <ProtectedRoute>
+            <UserProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users/:userId"
+        element={
+          <ProtectedRoute>
+            <UserProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

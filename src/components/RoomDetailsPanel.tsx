@@ -62,13 +62,14 @@ export default function RoomDetailsPanel({
         ) : (
           <ul className="flex flex-col gap-2">
             {room.current_users.map((u) => (
-              <li
-                key={u.id}
-                id={`room-user-${room.id}-${u.id}`}
-                className="flex items-center gap-2"
-              >
-                <UserAvatar name={u.display_name} photo={u.photo} size={28} />
-                <span>{u.display_name}</span>
+              <li key={u.id} id={`room-user-${room.id}-${u.id}`}>
+                <Link
+                  to={`/profile/${u.id}`}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 transition hover:bg-gray-50"
+                >
+                  <UserAvatar name={u.display_name} photo={u.photo} size={28} />
+                  <span>{u.display_name}</span>
+                </Link>
               </li>
             ))}
           </ul>
@@ -92,11 +93,21 @@ export default function RoomDetailsPanel({
                   photo={event.creator.photo}
                   size={28}
                 />
-                <div>
-                  <p className="font-medium">{event.title}</p>
+                <div className="min-w-0">
+                  <Link
+                    to={`/feed?eventId=${event.id}`}
+                    className="font-medium hover:text-blue-700 hover:underline"
+                  >
+                    {event.title}
+                  </Link>
                   <p className="text-xs text-gray-500">
-                    {event.creator.display_name} · {event.participants_count}{' '}
-                    учасник(ів)
+                    <Link
+                      to={`/profile/${event.creator.id}`}
+                      className="hover:text-blue-700 hover:underline"
+                    >
+                      {event.creator.display_name}
+                    </Link>{' '}
+                    · {event.participants_count} учасник(ів)
                   </p>
                 </div>
               </li>

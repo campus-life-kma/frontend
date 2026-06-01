@@ -1,9 +1,10 @@
 import { useState, type SyntheticEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import axios from 'axios';
 import { devLogin } from '../api/auth';
 import { msalLoginRequest } from '../api/msal-config';
+import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 
 function extractErrorMessage(error: unknown, fallback: string): string {
@@ -70,7 +71,7 @@ export default function LoginPage() {
         className="w-full max-w-md rounded-xl bg-white p-8 shadow-md"
       >
         <h1 className="mb-2 text-center text-2xl font-semibold text-gray-900">
-          Campus Life
+          <Link to="/">{APP_TITLE}</Link>
         </h1>
         <p className="mb-6 text-center text-sm text-gray-500">
           Увійдіть, щоб продовжити

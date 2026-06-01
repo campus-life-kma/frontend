@@ -1,5 +1,4 @@
 import { resolveMediaUrl } from '../utils/media';
-import { iconForResourceName } from './resource-icons';
 import type { ResourceOnMap } from '../types/locations';
 
 interface ResourceTypeIconProps {
@@ -14,27 +13,28 @@ export default function ResourceTypeIcon({
   const iconUrl = resolveMediaUrl(resource.resource_icon ?? null);
   const opacity = resource.is_blocked ? 0.4 : 1;
 
-  if (iconUrl) {
-    return (
-      <img
-        src={iconUrl}
-        alt=""
-        width={size}
-        height={size}
-        className="shrink-0"
-        style={{ opacity }}
-      />
-    );
-  }
-
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      className="shrink-0"
-      style={{ color: resource.is_blocked ? '#9ca3af' : '#374151' }}
-      dangerouslySetInnerHTML={{ __html: iconForResourceName(resource.name) }}
-    />
+    <span
+      className={
+        'inline-flex shrink-0 items-center justify-center overflow-hidden ' +
+        'rounded bg-gray-100 text-[10px] font-semibold text-gray-500'
+      }
+      style={{ width: size, height: size, opacity }}
+      title={
+        resource.resource_icon ? resource.name : 'Іконка ресурсу не вказана'
+      }
+    >
+      {iconUrl ? (
+        <img
+          src={iconUrl}
+          alt=""
+          width={size}
+          height={size}
+          className="h-full w-full object-contain"
+        />
+      ) : (
+        (resource.name.trim()[0]?.toUpperCase() ?? '?')
+      )}
+    </span>
   );
 }
