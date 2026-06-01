@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { RoomOnMap } from '../types/locations';
+import { useAuthStore } from '../store/authStore';
 import { checkIn } from '../api/presence';
+import { blockRoom, unblockRoom } from '../api/rooms';
 import UserAvatar from './UserAvatar';
 import ResourceTypeIcon from './ResourceTypeIcon';
 
@@ -28,11 +30,23 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function RoomDetailsPanel({ room }: RoomDetailsPanelProps) {
+  const role = useAuthStore((state) => state.user?.role);
   const queryClient = useQueryClient();
+
+  const refreshMap = () =>
+    queryClient.invalidateQueries({ queryKey: ['floor-map'] });
 
   const checkInMutation = useMutation({
     mutationFn: (roomId: number) => checkIn(roomId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['floor-map'] }),
+    onSuccess: refreshMap,
+  });
+  const blockMutation = useMutation({
+    mutationFn: (roomId: number) => blockRoom(roomId),
+    onSuccess: refreshMap,
+  });
+  const unblockMutation = useMutation({
+    mutationFn: (roomId: number) => unblockRoom(roomId),
+    onSuccess: refreshMap,
   });
 
   if (!room) {
@@ -45,7 +59,12 @@ export default function RoomDetailsPanel({ room }: RoomDetailsPanelProps) {
 
   const typeLabel = ROOM_TYPE_LABEL[room.room_type] ?? room.room_type;
   const hasEvents = room.active_events.length > 0;
+  const isAdmin = role === 'ADMIN';
   const canCheckIn = !room.is_blocked;
+
+  const blockBusy = blockMutation.isPending || unblockMutation.isPending;
+  const actionError =
+    checkInMutation.error ?? blockMutation.error ?? unblockMutation.error;
 
   return (
     <div id={`room-details-${room.id}`} className="flex flex-col gap-4 text-sm">
@@ -141,8 +160,8 @@ export default function RoomDetailsPanel({ room }: RoomDetailsPanelProps) {
         </section>
       )}
 
-      {canCheckIn && (
-        <footer className="flex flex-col gap-2 border-t border-gray-100 pt-4">
+      <footer className="flex flex-col gap-2 border-t border-gray-100 pt-4">
+        {canCheckIn && (
           <button
             id="room-check-in"
             type="button"
@@ -156,16 +175,45 @@ export default function RoomDetailsPanel({ room }: RoomDetailsPanelProps) {
           >
             {checkInMutation.isPending ? 'Відмічаємо…' : 'Відмітитися тут'}
           </button>
-          {checkInMutation.error && (
-            <p role="alert" className="text-xs text-red-700">
-              {extractErrorMessage(
-                checkInMutation.error,
-                'Дію не вдалося виконати.'
-              )}
-            </p>
-          )}
-        </footer>
-      )}
+        )}
+
+        {isAdmin &&
+          (room.is_blocked ? (
+            <button
+              id="room-unblock"
+              type="button"
+              onClick={() => unblockMutation.mutate(room.id)}
+              disabled={blockBusy}
+              className={
+                'w-full rounded-md border border-gray-300 px-4 py-2 ' +
+                'font-medium text-gray-700 transition hover:bg-gray-50 ' +
+                'disabled:cursor-not-allowed disabled:opacity-60'
+              }
+            >
+              {blockBusy ? 'Зачекайте…' : 'Розблокувати кімнату'}
+            </button>
+          ) : (
+            <button
+              id="room-block"
+              type="button"
+              onClick={() => blockMutation.mutate(room.id)}
+              disabled={blockBusy}
+              className={
+                'w-full rounded-md border border-red-300 px-4 py-2 ' +
+                'font-medium text-red-700 transition hover:bg-red-50 ' +
+                'disabled:cursor-not-allowed disabled:opacity-60'
+              }
+            >
+              {blockBusy ? 'Зачекайте…' : 'Заблокувати кімнату'}
+            </button>
+          ))}
+
+        {actionError && (
+          <p role="alert" className="text-xs text-red-700">
+            {extractErrorMessage(actionError, 'Дію не вдалося виконати.')}
+          </p>
+        )}
+      </footer>
     </div>
   );
 }
