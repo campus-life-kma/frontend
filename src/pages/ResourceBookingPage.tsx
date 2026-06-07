@@ -19,6 +19,7 @@ import { getFloorMapData, getFloors } from '../api/locations';
 import UserAvatar from '../components/UserAvatar';
 import ResourceTypeIcon from '../components/ResourceTypeIcon';
 import ProfileMenu from '../components/ProfileMenu';
+import ConfirmDialog from '../components/UI/ConfirmDialog';
 import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 import type { Booking, ResourceScheduleBooking } from '../types/bookings';
@@ -292,6 +293,8 @@ export default function ResourceBookingPage() {
   const logout = useAuthStore((state) => state.logout);
   const [localBlocked, setLocalBlocked] = useState<boolean | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [pendingCancelBooking, setPendingCancelBooking] =
+    useState<TimelineBooking | null>(null);
 
   const resourceContext = useResourceContext(
     Number.isFinite(numericResourceId) ? numericResourceId : null
@@ -398,6 +401,7 @@ export default function ResourceBookingPage() {
   const cancelMutation = useMutation({
     mutationFn: cancelBooking,
     onSuccess: async () => {
+      setPendingCancelBooking(null);
       closeModal();
       await Promise.all([
         queryClient.invalidateQueries({
@@ -406,6 +410,7 @@ export default function ResourceBookingPage() {
         queryClient.invalidateQueries({ queryKey: ['bookings-me'] }),
       ]);
     },
+    onError: (error) => setFormError(normalizeError(error)),
   });
 
   const blockMutation = useMutation({
@@ -472,14 +477,8 @@ export default function ResourceBookingPage() {
     );
   }
 
-  async function handleCancel(booking: TimelineBooking) {
-    const name = booking.user?.display_name ?? 'користувача';
-    if (
-      !window.confirm(`Ви впевнені, що хочете скасувати бронювання ${name}?`)
-    ) {
-      return;
-    }
-    await cancelMutation.mutateAsync(booking.id);
+  function handleCancel(booking: TimelineBooking) {
+    setPendingCancelBooking(booking);
   }
 
   async function handleCreate(draft: BookingDraft) {
@@ -699,6 +698,24 @@ export default function ResourceBookingPage() {
             selectedBooking ? () => handleCancel(selectedBooking) : undefined
           }
           onClose={closeModal}
+        />
+      )}
+
+      {pendingCancelBooking && (
+        <ConfirmDialog
+          variant="danger"
+          title="Скасувати бронювання?"
+          description={`Бронювання ${pendingCancelBooking.user?.display_name ?? 'користувача'} на ${formatTimeRange(
+            pendingCancelBooking.start,
+            pendingCancelBooking.end
+          )} буде скасовано. Цю дію не можна швидко відновити через інтерфейс.`}
+          cancelLabel="Залишити"
+          confirmLabel={
+            cancelMutation.isPending ? 'Скасовуємо…' : 'Скасувати бронь'
+          }
+          isPending={cancelMutation.isPending}
+          onClose={() => setPendingCancelBooking(null)}
+          onConfirm={() => cancelMutation.mutate(pendingCancelBooking.id)}
         />
       )}
     </div>

@@ -21,6 +21,7 @@ import {
 import { getFloors } from '../api/locations';
 import UserAvatar from '../components/UserAvatar';
 import ProfileMenu from '../components/ProfileMenu';
+import ConfirmDialog from '../components/UI/ConfirmDialog';
 import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 import type { Announcement } from '../types/announcements';
@@ -287,6 +288,10 @@ export default function SocialFeedPage() {
     announcementsQuery.data?.filter(
       (announcement) => !dismissedTimed.has(announcement.id)
     ) ?? [];
+  const pendingDeleteLabel =
+    pendingDelete?.kind === 'event' ? 'подію' : 'запит на шеринг';
+  const isDeleting =
+    deleteEventMutation.isPending || deleteSharingMutation.isPending;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -398,11 +403,13 @@ export default function SocialFeedPage() {
       )}
 
       {pendingDelete && (
-        <ConfirmDeleteDialog
-          pendingDelete={pendingDelete}
-          isDeleting={
-            deleteEventMutation.isPending || deleteSharingMutation.isPending
-          }
+        <ConfirmDialog
+          variant="danger"
+          title={`Видалити ${pendingDeleteLabel}?`}
+          description={`«${pendingDelete.title}» буде прибрано зі стрічки. Цю дію не можна скасувати через інтерфейс.`}
+          cancelLabel="Залишити"
+          confirmLabel={isDeleting ? 'Видаляємо…' : 'Видалити'}
+          isPending={isDeleting}
           onClose={() => setPendingDelete(null)}
           onConfirm={() => {
             if (pendingDelete.kind === 'event') {
@@ -906,76 +913,6 @@ function DetailsModal({
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function ConfirmDeleteDialog({
-  pendingDelete,
-  isDeleting,
-  onClose,
-  onConfirm,
-}: {
-  pendingDelete: PendingDelete;
-  isDeleting: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  const label = pendingDelete.kind === 'event' ? 'подію' : 'запит на шеринг';
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-lg border border-red-100 bg-white p-5 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex gap-4">
-          <div
-            className={
-              'flex h-11 w-11 shrink-0 items-center justify-center rounded-full ' +
-              'bg-red-100 text-lg font-bold text-red-700'
-            }
-          >
-            !
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-950">
-              Видалити {label}?
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-gray-600">
-              «{pendingDelete.title}» буде прибрано зі стрічки. Цю дію не можна
-              скасувати через інтерфейс.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isDeleting}
-            className={
-              'rounded-md border border-gray-200 px-4 py-2 text-sm font-medium ' +
-              'text-gray-700 hover:bg-gray-50 disabled:opacity-60'
-            }
-          >
-            Залишити
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isDeleting}
-            className={
-              'rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white ' +
-              'hover:bg-red-700 disabled:bg-gray-300'
-            }
-          >
-            {isDeleting ? 'Видаляємо…' : 'Видалити'}
-          </button>
-        </div>
       </div>
     </div>
   );
