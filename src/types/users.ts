@@ -20,6 +20,7 @@ export interface UserProfileEvent {
   type: 'event';
   id: number;
   title: string;
+  status: string;
   start_time: string;
   creator: UserOnMap;
   is_faculty_only: boolean;

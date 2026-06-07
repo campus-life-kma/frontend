@@ -5,6 +5,7 @@ export interface SocialEvent {
   id: number;
   title: string;
   description: string;
+  status: string;
   start_time: string;
   end_time: string;
   max_person: number;

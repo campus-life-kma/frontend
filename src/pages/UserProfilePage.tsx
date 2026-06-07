@@ -88,7 +88,7 @@ function formatRole(role: string | null): string {
   return role ? (labels[role] ?? role) : 'Мешканець';
 }
 
-function formatSharingStatus(status: string): string {
+function formatSocialStatus(status: string): string {
   const labels: Record<string, string> = {
     ACTIVE: 'Активний',
     COMPLETED: 'Виконано',
@@ -990,6 +990,10 @@ function ProfileDetailsModal({
                 </p>
                 <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
                   <InfoItem
+                    label="Статус"
+                    value={formatSocialStatus(event.status)}
+                  />
+                  <InfoItem
                     label="Початок"
                     value={formatDateTime(event.start_time)}
                   />
@@ -1017,7 +1021,7 @@ function ProfileDetailsModal({
               <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
                 <InfoItem
                   label="Статус"
-                  value={formatSharingStatus(sharing.status)}
+                  value={formatSocialStatus(sharing.status)}
                 />
                 <InfoItem
                   label="Створено"
@@ -1033,7 +1037,7 @@ function ProfileDetailsModal({
             )}
 
             <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">
-              {event && (
+              {event && event.status === 'ACTIVE' && (
                 <button
                   type="button"
                   onClick={() =>
@@ -1135,6 +1139,9 @@ function EventActivityCard({
       <p className="mt-1 text-xs text-gray-500">
         {formatDateTime(event.start_time)}
       </p>
+      <p className="mt-2 text-xs font-medium text-violet-700">
+        {formatSocialStatus(event.status)}
+      </p>
       {(event.is_faculty_only || event.is_major_only) && (
         <p className="mt-2 text-xs font-medium text-blue-700">
           {event.is_major_only ? 'Для спеціальності' : 'Для факультету'}
@@ -1168,7 +1175,7 @@ function SharingActivityCard({
       </p>
       <div className="mt-2 flex items-center justify-between gap-2 text-xs">
         <span className="font-medium text-emerald-700">
-          {formatSharingStatus(request.status)}
+          {formatSocialStatus(request.status)}
         </span>
         <span className="text-gray-500">
           {formatDateTime(request.created_at)}

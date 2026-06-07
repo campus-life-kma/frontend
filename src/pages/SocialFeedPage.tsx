@@ -60,7 +60,7 @@ function formatParticipantLimit(event: SocialEvent): string {
     : `${count} · необмежено`;
 }
 
-function formatSharingStatus(status: string): string {
+function formatSocialStatus(status: string): string {
   const labels: Record<string, string> = {
     ACTIVE: 'Активний',
     COMPLETED: 'Виконано',
@@ -99,7 +99,11 @@ function isSharing(item: FeedItem): item is SocialSharingRequest {
 
 function isActiveEvent(event: SocialEvent): boolean {
   const now = new Date();
-  return new Date(event.start_time) <= now && new Date(event.end_time) > now;
+  return (
+    event.status === 'ACTIVE' &&
+    new Date(event.start_time) <= now &&
+    new Date(event.end_time) > now
+  );
 }
 
 function toApiFeedType(type: FeedType): 'all' | 'event' | 'sharing_request' {
@@ -797,8 +801,8 @@ function FeedCard({ item, onOpen }: { item: FeedItem; onOpen: () => void }) {
           </p>
           <p className="text-xs text-gray-500">
             {isEvent(item)
-              ? formatDateTime(item.start_time)
-              : formatSharingStatus(item.status)}
+              ? `${formatDateTime(item.start_time)} · ${formatSocialStatus(item.status)}`
+              : formatSocialStatus(item.status)}
           </p>
         </div>
       </div>
@@ -904,6 +908,10 @@ function DetailsModal({
                   </p>
                   <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
                     <InfoItem
+                      label="Статус"
+                      value={formatSocialStatus(event.status)}
+                    />
+                    <InfoItem
                       label="Початок"
                       value={formatDateTime(event.start_time)}
                     />
@@ -956,7 +964,7 @@ function DetailsModal({
                 <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
                   <InfoItem
                     label="Статус"
-                    value={formatSharingStatus(sharing.status)}
+                    value={formatSocialStatus(sharing.status)}
                   />
                   <InfoItem
                     label="Створено"
@@ -976,7 +984,7 @@ function DetailsModal({
 
         {item && (
           <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 p-6 pt-4">
-            {event && (
+            {event && event.status === 'ACTIVE' && (
               <button
                 type="button"
                 onClick={() => (joined ? onLeave(event.id) : onJoin(event.id))}
