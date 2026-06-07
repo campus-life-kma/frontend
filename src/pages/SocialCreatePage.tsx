@@ -1,17 +1,66 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
-import { createEvent, createSharingRequest } from '../api/social';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  createEvent,
+  createSharingRequest,
+  getEvent,
+  getSharingRequest,
+  updateEvent,
+  updateSharingRequest,
+} from '../api/social';
 import { getFloors } from '../api/locations';
 import ProfileMenu from '../components/ProfileMenu';
 import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
-import type { SocialEventPayload } from '../types/social';
+import type {
+  SocialEventPayload,
+  SocialEventUpdatePayload,
+} from '../types/social';
 
 type CreateType = 'event' | 'sharing';
 
 function toApiDateTime(value: string): string {
   return new Date(value).toISOString();
+}
+
+function toLocalDateTimeInput(value: string): string {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+const ERROR_FIELD_LABELS: Record<string, string> = {
+  title: 'Назва',
+  description: 'Опис',
+  start_time: 'Початок',
+  end_time: 'Завершення',
+  max_person: 'Кількість учасників',
+  room: 'Кімната',
+  floor: 'Поверх',
+  custom_location: 'Локація',
+  is_faculty_only: 'Обмеження факультетом',
+  is_major_only: 'Обмеження спеціальністю',
+  non_field_errors: 'Помилка',
+  detail: '',
+};
+
+function flattenErrorMessages(value: unknown): string[] {
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value)) return value.flatMap(flattenErrorMessages);
+  if (typeof value === 'object' && value !== null) {
+    return Object.entries(value).flatMap(([key, nestedValue]) => {
+      const messages = flattenErrorMessages(nestedValue);
+      const label = ERROR_FIELD_LABELS[key] ?? key;
+      if (!label) return messages;
+      return messages.map((message) => `${label}: ${message}`);
+    });
+  }
+  return [];
 }
 
 function normalizeError(error: unknown): string {
@@ -24,19 +73,32 @@ function normalizeError(error: unknown): string {
     'data' in error.response
   ) {
     const data = error.response.data;
-    if (typeof data === 'object' && data !== null && 'detail' in data) {
-      return String(data.detail);
-    }
+    const messages = flattenErrorMessages(data);
+    if (messages.length > 0) return messages.join(' ');
   }
   return 'Не вдалося опублікувати. Перевірте поля і спробуйте ще раз.';
 }
 
 export default function SocialCreatePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const [type, setType] = useState<CreateType>('event');
   const [error, setError] = useState<string | null>(null);
+  const [initializedEditKey, setInitializedEditKey] = useState<string | null>(
+    null
+  );
+  const editEventId = Number(searchParams.get('eventId'));
+  const editSharingId = Number(searchParams.get('sharingId'));
+  const isEditingEvent = Number.isFinite(editEventId) && editEventId > 0;
+  const isEditingSharing = Number.isFinite(editSharingId) && editSharingId > 0;
+  const isEditing = isEditingEvent || isEditingSharing;
+  const editKey = isEditingEvent
+    ? `event-${editEventId}`
+    : isEditingSharing
+      ? `sharing-${editSharingId}`
+      : null;
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
@@ -46,6 +108,7 @@ export default function SocialCreatePage() {
     has_limit: false,
     is_faculty_only: false,
     is_major_only: false,
+    room: '',
     floor: '',
     custom_location: '',
   });
@@ -57,8 +120,69 @@ export default function SocialCreatePage() {
     enabled: !!user?.dormitory_id,
   });
 
+  const eventDetailQuery = useQuery({
+    queryKey: ['event-detail', editEventId],
+    queryFn: () => getEvent(editEventId),
+    enabled: isEditingEvent,
+  });
+
+  const sharingDetailQuery = useQuery({
+    queryKey: ['sharing-request-detail', editSharingId],
+    queryFn: () => getSharingRequest(editSharingId),
+    enabled: isEditingSharing,
+  });
+
+  useEffect(() => {
+    if (!isEditing || !editKey || initializedEditKey === editKey) return;
+
+    if (isEditingEvent && eventDetailQuery.data) {
+      const event = eventDetailQuery.data;
+      queueMicrotask(() => {
+        setType('event');
+        setEventForm({
+          title: event.title,
+          description: event.description,
+          start_time: toLocalDateTimeInput(event.start_time),
+          end_time: toLocalDateTimeInput(event.end_time),
+          max_person: String(event.max_person || 0),
+          has_limit: event.max_person > 0,
+          is_faculty_only: event.is_faculty_only,
+          is_major_only: event.is_major_only,
+          room: event.room_id ? String(event.room_id) : '',
+          floor: !event.room_id && event.floor_id ? String(event.floor_id) : '',
+          custom_location: event.custom_location ?? '',
+        });
+        setInitializedEditKey(editKey);
+      });
+    }
+
+    if (isEditingSharing && sharingDetailQuery.data) {
+      const sharing = sharingDetailQuery.data;
+      queueMicrotask(() => {
+        setType('sharing');
+        setSharingTitle(sharing.title);
+        setInitializedEditKey(editKey);
+      });
+    }
+  }, [
+    editKey,
+    eventDetailQuery.data,
+    initializedEditKey,
+    isEditing,
+    isEditingEvent,
+    isEditingSharing,
+    sharingDetailQuery.data,
+  ]);
+
   const eventMutation = useMutation({
     mutationFn: createEvent,
+    onSuccess: (event) => navigate(`/feed?eventId=${event.id}`),
+    onError: (mutationError) => setError(normalizeError(mutationError)),
+  });
+
+  const eventUpdateMutation = useMutation({
+    mutationFn: (payload: SocialEventUpdatePayload) =>
+      updateEvent(editEventId, payload),
     onSuccess: (event) => navigate(`/feed?eventId=${event.id}`),
     onError: (mutationError) => setError(normalizeError(mutationError)),
   });
@@ -68,6 +192,36 @@ export default function SocialCreatePage() {
     onSuccess: (request) => navigate(`/feed?sharingId=${request.id}`),
     onError: (mutationError) => setError(normalizeError(mutationError)),
   });
+
+  const sharingUpdateMutation = useMutation({
+    mutationFn: (payload: { title: string }) =>
+      updateSharingRequest(editSharingId, payload),
+    onSuccess: (request) => navigate(`/feed?sharingId=${request.id}`),
+    onError: (mutationError) => setError(normalizeError(mutationError)),
+  });
+
+  const isSubmitting =
+    eventMutation.isPending ||
+    eventUpdateMutation.isPending ||
+    sharingMutation.isPending ||
+    sharingUpdateMutation.isPending;
+  const isLoadingEdit =
+    (isEditingEvent && eventDetailQuery.isLoading) ||
+    (isEditingSharing && sharingDetailQuery.isLoading);
+  const pageTitle = isEditing ? 'Редагувати' : 'Створити';
+  const submitLabel = isEditing
+    ? isSubmitting
+      ? 'Зберігаємо…'
+      : 'Зберегти зміни'
+    : isSubmitting
+      ? 'Публікуємо…'
+      : 'Опублікувати';
+
+  const cancelPath = useMemo(() => {
+    if (isEditingEvent) return `/feed?eventId=${editEventId}`;
+    if (isEditingSharing) return `/feed?sharingId=${editSharingId}`;
+    return '/feed';
+  }, [editEventId, editSharingId, isEditingEvent, isEditingSharing]);
 
   function submitEvent() {
     setError(null);
@@ -79,7 +233,11 @@ export default function SocialCreatePage() {
       setError('Вкажіть час початку та завершення події.');
       return;
     }
-    if (!eventForm.floor && !eventForm.custom_location.trim()) {
+    if (
+      !eventForm.room &&
+      !eventForm.floor &&
+      !eventForm.custom_location.trim()
+    ) {
       setError('Вкажіть поверх або довільну локацію.');
       return;
     }
@@ -92,10 +250,24 @@ export default function SocialCreatePage() {
       max_person: eventForm.has_limit ? Number(eventForm.max_person) || 1 : 0,
       is_faculty_only: eventForm.is_faculty_only,
       is_major_only: eventForm.is_major_only,
+      room: eventForm.room ? Number(eventForm.room) : null,
       floor: eventForm.floor ? Number(eventForm.floor) : null,
       custom_location: eventForm.custom_location.trim() || null,
     };
-    eventMutation.mutate(payload);
+    if (isEditingEvent) {
+      const updatePayload: SocialEventUpdatePayload = { ...payload };
+      const originalStart = eventDetailQuery.data?.start_time;
+      if (
+        originalStart &&
+        eventForm.start_time === toLocalDateTimeInput(originalStart) &&
+        new Date(originalStart) < new Date()
+      ) {
+        delete updatePayload.start_time;
+      }
+      eventUpdateMutation.mutate(updatePayload);
+    } else {
+      eventMutation.mutate(payload);
+    }
   }
 
   function submitSharing() {
@@ -104,7 +276,9 @@ export default function SocialCreatePage() {
       setError('Вкажіть, що саме вам потрібно.');
       return;
     }
-    sharingMutation.mutate({ title: sharingTitle.trim() });
+    const payload = { title: sharingTitle.trim() };
+    if (isEditingSharing) sharingUpdateMutation.mutate(payload);
+    else sharingMutation.mutate(payload);
   }
 
   return (
@@ -136,14 +310,18 @@ export default function SocialCreatePage() {
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-950">Створити</h1>
+              <h1 className="text-2xl font-semibold text-gray-950">
+                {pageTitle}
+              </h1>
               <p className="mt-1 text-sm text-gray-500">
-                Опублікуйте івент або короткий запит на шеринг.
+                {isEditing
+                  ? 'Оновіть інформацію, яку бачать мешканці у стрічці.'
+                  : 'Опублікуйте івент або короткий запит на шеринг.'}
               </p>
             </div>
             <Link
               className="text-sm font-medium text-gray-500 hover:text-gray-800"
-              to="/feed"
+              to={cancelPath}
             >
               Скасувати
             </Link>
@@ -153,11 +331,13 @@ export default function SocialCreatePage() {
             <button
               type="button"
               onClick={() => setType('event')}
+              disabled={isEditing}
               className={
                 'rounded-lg border p-4 text-left transition ' +
                 (type === 'event'
                   ? 'border-blue-300 bg-blue-50'
-                  : 'border-gray-200 hover:bg-gray-50')
+                  : 'border-gray-200 hover:bg-gray-50') +
+                (isEditing ? ' cursor-not-allowed opacity-70' : '')
               }
             >
               <span className="text-sm font-semibold text-gray-950">
@@ -170,11 +350,13 @@ export default function SocialCreatePage() {
             <button
               type="button"
               onClick={() => setType('sharing')}
+              disabled={isEditing}
               className={
                 'rounded-lg border p-4 text-left transition ' +
                 (type === 'sharing'
                   ? 'border-blue-300 bg-blue-50'
-                  : 'border-gray-200 hover:bg-gray-50')
+                  : 'border-gray-200 hover:bg-gray-50') +
+                (isEditing ? ' cursor-not-allowed opacity-70' : '')
               }
             >
               <span className="text-sm font-semibold text-gray-950">
@@ -186,7 +368,11 @@ export default function SocialCreatePage() {
             </button>
           </div>
 
-          {type === 'event' ? (
+          {isLoadingEdit ? (
+            <p className="mt-6 rounded-md bg-gray-50 px-3 py-4 text-sm text-gray-500">
+              Завантажуємо дані для редагування…
+            </p>
+          ) : type === 'event' ? (
             <div className="mt-6 space-y-4">
               <TextInput
                 label="Назва"
@@ -272,6 +458,7 @@ export default function SocialCreatePage() {
                     onChange={(event) =>
                       setEventForm((form) => ({
                         ...form,
+                        room: '',
                         floor: event.target.value,
                       }))
                     }
@@ -342,7 +529,7 @@ export default function SocialCreatePage() {
 
           <div className="mt-6 flex justify-end gap-2">
             <Link
-              to="/feed"
+              to={cancelPath}
               className="rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Скасувати
@@ -350,13 +537,13 @@ export default function SocialCreatePage() {
             <button
               type="button"
               onClick={type === 'event' ? submitEvent : submitSharing}
-              disabled={eventMutation.isPending || sharingMutation.isPending}
+              disabled={isSubmitting || isLoadingEdit}
               className={
                 'rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold ' +
                 'text-white hover:bg-blue-700 disabled:bg-gray-300'
               }
             >
-              Опублікувати
+              {submitLabel}
             </button>
           </div>
         </div>

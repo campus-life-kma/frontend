@@ -2,8 +2,10 @@ import api from './axios-instance';
 import type {
   FeedResponse,
   SharingRequestPayload,
+  SharingRequestUpdatePayload,
   SocialEvent,
   SocialEventPayload,
+  SocialEventUpdatePayload,
   SocialSharingRequest,
 } from '../types/social';
 
@@ -55,6 +57,14 @@ export async function createEvent(
   return data;
 }
 
+export async function updateEvent(
+  eventId: number,
+  payload: SocialEventUpdatePayload
+): Promise<SocialEvent> {
+  const { data } = await api.patch<SocialEvent>(`/events/${eventId}/`, payload);
+  return data;
+}
+
 export async function joinEvent(eventId: number): Promise<SocialEvent> {
   const { data } = await api.post<SocialEvent>(`/events/${eventId}/join/`);
   return data;
@@ -74,6 +84,17 @@ export async function createSharingRequest(
 ): Promise<SocialSharingRequest> {
   const { data } = await api.post<SocialSharingRequest>(
     '/sharing-requests/',
+    payload
+  );
+  return data;
+}
+
+export async function updateSharingRequest(
+  requestId: number,
+  payload: SharingRequestUpdatePayload
+): Promise<SocialSharingRequest> {
+  const { data } = await api.patch<SocialSharingRequest>(
+    `/sharing-requests/${requestId}/`,
     payload
   );
   return data;

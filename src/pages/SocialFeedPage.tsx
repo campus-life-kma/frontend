@@ -7,12 +7,15 @@ import {
 } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
+  completeSharingRequest,
   deleteEvent,
   deleteSharingRequest,
   getEvent,
   getFeed,
+  getSharingRequest,
   joinEvent,
   leaveEvent,
+  updateEvent,
 } from '../api/social';
 import {
   getActiveAnnouncements,
@@ -30,10 +33,14 @@ import type {
   SocialEvent,
   SocialSharingRequest,
 } from '../types/social';
+import type { FloorListItem } from '../types/locations';
 
 type FeedType = 'all' | 'events' | 'sharing';
 type FeedOrdering = 'created_at' | 'start_time';
 type PendingDelete =
+  | { kind: 'event'; id: number; title: string }
+  | { kind: 'sharing'; id: number; title: string };
+type PendingComplete =
   | { kind: 'event'; id: number; title: string }
   | { kind: 'sharing'; id: number; title: string };
 
@@ -63,6 +70,21 @@ function formatSharingStatus(status: string): string {
   return labels[status] ?? status;
 }
 
+function formatEventLocation(
+  event: SocialEvent,
+  floors: FloorListItem[]
+): string {
+  if (event.room_name) return event.room_name;
+  if (event.custom_location) return event.custom_location;
+
+  if (event.floor_id) {
+    const floor = floors.find((item) => item.id === event.floor_id);
+    return floor ? `Поверх ${floor.number}` : `Поверх #${event.floor_id}`;
+  }
+
+  return 'Локацію не вказано';
+}
+
 function toInputDate(value: string): string {
   return value ? value.slice(0, 10) : '';
 }
@@ -73,6 +95,11 @@ function isEvent(item: FeedItem): item is SocialEvent {
 
 function isSharing(item: FeedItem): item is SocialSharingRequest {
   return item.type === 'sharing_request';
+}
+
+function isActiveEvent(event: SocialEvent): boolean {
+  const now = new Date();
+  return new Date(event.start_time) <= now && new Date(event.end_time) > now;
 }
 
 function toApiFeedType(type: FeedType): 'all' | 'event' | 'sharing_request' {
@@ -119,6 +146,8 @@ export default function SocialFeedPage() {
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(
     null
   );
+  const [pendingComplete, setPendingComplete] =
+    useState<PendingComplete | null>(null);
 
   const type = (searchParams.get('type') as FeedType | null) ?? 'all';
   const q = searchParams.get('q') ?? '';
@@ -171,6 +200,12 @@ export default function SocialFeedPage() {
     enabled: Number.isFinite(eventId) && eventId > 0,
   });
 
+  const sharingDetailQuery = useQuery({
+    queryKey: ['sharing-request-detail', sharingId],
+    queryFn: () => getSharingRequest(sharingId),
+    enabled: Number.isFinite(sharingId) && sharingId > 0,
+  });
+
   const feedItems = useMemo(
     () => feedQueries.flatMap((query) => query.data?.results ?? []),
     [feedQueries]
@@ -179,11 +214,13 @@ export default function SocialFeedPage() {
   const hasNext = feedQueries.at(-1)?.data?.has_next ?? false;
   const isLoading = feedQueries.some((query) => query.isLoading);
 
-  const selectedSharing = Number.isFinite(sharingId)
-    ? (feedItems.find((item) => isSharing(item) && item.id === sharingId) as
-        | SocialSharingRequest
-        | undefined)
-    : undefined;
+  const selectedSharing =
+    sharingDetailQuery.data ??
+    (Number.isFinite(sharingId)
+      ? (feedItems.find((item) => isSharing(item) && item.id === sharingId) as
+          | SocialSharingRequest
+          | undefined)
+      : undefined);
 
   const selectedEvent =
     eventDetailQuery.data ??
@@ -254,6 +291,31 @@ export default function SocialFeedPage() {
     onError: (error) => setActionError(normalizeError(error)),
   });
 
+  const completeSharingMutation = useMutation({
+    mutationFn: completeSharingRequest,
+    onSuccess: async () => {
+      setPendingComplete(null);
+      closeModal();
+      await queryClient.invalidateQueries({ queryKey: ['feed'] });
+      await queryClient.invalidateQueries({
+        queryKey: ['sharing-request-detail'],
+      });
+    },
+    onError: (error) => setActionError(normalizeError(error)),
+  });
+
+  const completeEventMutation = useMutation({
+    mutationFn: (eventIdToComplete: number) =>
+      updateEvent(eventIdToComplete, { end_time: new Date().toISOString() }),
+    onSuccess: async () => {
+      setPendingComplete(null);
+      closeModal();
+      await queryClient.invalidateQueries({ queryKey: ['feed'] });
+      await queryClient.invalidateQueries({ queryKey: ['event-detail'] });
+    },
+    onError: (error) => setActionError(normalizeError(error)),
+  });
+
   function updateParam(key: string, value: string | null) {
     const next = new URLSearchParams(searchParams);
     if (!value || value === 'all') next.delete(key);
@@ -292,6 +354,10 @@ export default function SocialFeedPage() {
     pendingDelete?.kind === 'event' ? 'подію' : 'запит на шеринг';
   const isDeleting =
     deleteEventMutation.isPending || deleteSharingMutation.isPending;
+  const pendingCompleteLabel =
+    pendingComplete?.kind === 'event' ? 'івент' : 'запит на шеринг';
+  const isCompleting =
+    completeEventMutation.isPending || completeSharingMutation.isPending;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -384,12 +450,16 @@ export default function SocialFeedPage() {
         </section>
       </main>
 
-      {(selectedEvent || selectedSharing || eventDetailQuery.isLoading) && (
+      {(selectedEvent ||
+        selectedSharing ||
+        eventDetailQuery.isLoading ||
+        sharingDetailQuery.isLoading) && (
         <DetailsModal
           event={selectedEvent}
           sharing={selectedSharing}
-          loading={eventDetailQuery.isLoading}
+          loading={eventDetailQuery.isLoading || sharingDetailQuery.isLoading}
           actionError={actionError}
+          floors={floorsQuery.data ?? []}
           currentUserId={user?.id ?? null}
           canModerateItem={(item) =>
             canModerate(user?.role, user?.floor_id, item.floor_id)
@@ -399,6 +469,8 @@ export default function SocialFeedPage() {
           onLeave={(id) => leaveMutation.mutate(id)}
           onDeleteEvent={(item) => setPendingDelete(item)}
           onDeleteSharing={(item) => setPendingDelete(item)}
+          onCompleteEvent={(item) => setPendingComplete(item)}
+          onCompleteSharing={(item) => setPendingComplete(item)}
         />
       )}
 
@@ -416,6 +488,29 @@ export default function SocialFeedPage() {
               deleteEventMutation.mutate(pendingDelete.id);
             } else {
               deleteSharingMutation.mutate(pendingDelete.id);
+            }
+          }}
+        />
+      )}
+
+      {pendingComplete && (
+        <ConfirmDialog
+          variant="info"
+          title={`Позначити ${pendingCompleteLabel} виконаним?`}
+          description={
+            pendingComplete.kind === 'event'
+              ? `Івент «${pendingComplete.title}» буде завершено зараз і зникне з актуальної стрічки.`
+              : `Запит «${pendingComplete.title}» отримає статус «Виконано» і зникне з активної стрічки.`
+          }
+          cancelLabel="Не зараз"
+          confirmLabel={isCompleting ? 'Оновлюємо…' : 'Позначити виконаним'}
+          isPending={isCompleting}
+          onClose={() => setPendingComplete(null)}
+          onConfirm={() => {
+            if (pendingComplete.kind === 'event') {
+              completeEventMutation.mutate(pendingComplete.id);
+            } else {
+              completeSharingMutation.mutate(pendingComplete.id);
             }
           }}
         />
@@ -716,6 +811,7 @@ function DetailsModal({
   sharing,
   loading,
   actionError,
+  floors,
   currentUserId,
   canModerateItem,
   onClose,
@@ -723,11 +819,14 @@ function DetailsModal({
   onLeave,
   onDeleteEvent,
   onDeleteSharing,
+  onCompleteEvent,
+  onCompleteSharing,
 }: {
   event?: SocialEvent;
   sharing?: SocialSharingRequest;
   loading: boolean;
   actionError: string | null;
+  floors: FloorListItem[];
   currentUserId: string | null;
   canModerateItem: (item: FeedItem) => boolean;
   onClose: () => void;
@@ -735,10 +834,15 @@ function DetailsModal({
   onLeave: (id: number) => void;
   onDeleteEvent: (item: PendingDelete) => void;
   onDeleteSharing: (item: PendingDelete) => void;
+  onCompleteEvent: (item: PendingComplete) => void;
+  onCompleteSharing: (item: PendingComplete) => void;
 }) {
   const item = event ?? sharing;
   const isOwner = item?.creator.id === currentUserId;
   const canDelete = item ? isOwner || canModerateItem(item) : false;
+  const canCompleteSharing =
+    Boolean(sharing) && sharing?.status === 'ACTIVE' && canDelete;
+  const canCompleteEvent = event ? isOwner && isActiveEvent(event) : false;
   const joined =
     event?.participants?.some(
       (participant) => participant.id === currentUserId
@@ -750,10 +854,10 @@ function DetailsModal({
       onClick={onClose}
     >
       <div
-        className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-lg bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-6 pb-4">
           <div>
             <span className="text-xs font-semibold tracking-wide text-blue-700 uppercase">
               {event ? 'Івент' : 'Шеринг'}
@@ -772,145 +876,190 @@ function DetailsModal({
         </div>
 
         {item && (
-          <div className="mt-5 space-y-5">
-            <div className="flex items-center gap-3 rounded-md bg-gray-50 p-3">
-              <UserAvatar
-                name={item.creator.display_name}
-                photo={item.creator.photo}
-                size={38}
-              />
-              <div>
-                <p className="text-sm font-semibold text-gray-800">
-                  {item.creator.display_name}
-                </p>
-                <Link
-                  to={`/profile/${item.creator.id}`}
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  Профіль автора
-                </Link>
+          <div className="min-h-0 overflow-y-auto px-6 py-5">
+            <div className="space-y-5">
+              <div className="flex items-center gap-3 rounded-md bg-gray-50 p-3">
+                <UserAvatar
+                  name={item.creator.display_name}
+                  photo={item.creator.photo}
+                  size={38}
+                />
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">
+                    {item.creator.display_name}
+                  </p>
+                  <Link
+                    to={`/profile/${item.creator.id}`}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    Профіль автора
+                  </Link>
+                </div>
               </div>
-            </div>
 
-            {event && (
-              <>
-                <p className="text-sm leading-6 text-gray-700">
-                  {event.description}
-                </p>
+              {event && (
+                <>
+                  <p className="text-sm leading-6 text-gray-700">
+                    {event.description}
+                  </p>
+                  <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
+                    <InfoItem
+                      label="Початок"
+                      value={formatDateTime(event.start_time)}
+                    />
+                    <InfoItem
+                      label="Кінець"
+                      value={formatDateTime(event.end_time)}
+                    />
+                    <InfoItem
+                      label="Локація"
+                      value={formatEventLocation(event, floors)}
+                    />
+                    <InfoItem
+                      label="Учасники"
+                      value={formatParticipantLimit(event)}
+                    />
+                  </dl>
+                  {event.participants && (
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-semibold text-gray-700">
+                          Учасники
+                        </h3>
+                        <span className="text-xs font-medium text-gray-400">
+                          {event.participants.length}
+                        </span>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto rounded-md border border-gray-100 bg-gray-50/60 p-2">
+                        <div className="flex flex-wrap gap-2">
+                          {event.participants.map((participant) => (
+                            <span
+                              key={participant.id}
+                              className="flex items-center gap-2 rounded-full bg-white px-2 py-1 text-xs shadow-sm"
+                            >
+                              <UserAvatar
+                                name={participant.display_name}
+                                photo={participant.photo}
+                                size={22}
+                              />
+                              {participant.display_name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {sharing && (
                 <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
                   <InfoItem
-                    label="Початок"
-                    value={formatDateTime(event.start_time)}
+                    label="Статус"
+                    value={formatSharingStatus(sharing.status)}
                   />
                   <InfoItem
-                    label="Кінець"
-                    value={formatDateTime(event.end_time)}
-                  />
-                  <InfoItem
-                    label="Локація"
-                    value={event.room_name ?? event.custom_location ?? 'Поверх'}
-                  />
-                  <InfoItem
-                    label="Учасники"
-                    value={formatParticipantLimit(event)}
+                    label="Створено"
+                    value={formatDateTime(sharing.created_at)}
                   />
                 </dl>
-                {event.participants && (
-                  <div>
-                    <h3 className="mb-2 text-sm font-semibold text-gray-700">
-                      Учасники
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {event.participants.map((participant) => (
-                        <span
-                          key={participant.id}
-                          className="flex items-center gap-2 rounded-full bg-gray-100 px-2 py-1 text-xs"
-                        >
-                          <UserAvatar
-                            name={participant.display_name}
-                            photo={participant.photo}
-                            size={22}
-                          />
-                          {participant.display_name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {sharing && (
-              <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
-                <InfoItem
-                  label="Статус"
-                  value={formatSharingStatus(sharing.status)}
-                />
-                <InfoItem
-                  label="Створено"
-                  value={formatDateTime(sharing.created_at)}
-                />
-              </dl>
-            )}
-
-            {actionError && (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-                {actionError}
-              </p>
-            )}
-
-            <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">
-              {event && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    joined ? onLeave(event.id) : onJoin(event.id)
-                  }
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                >
-                  {joined ? 'Відмовитися' : 'Приєднатися'}
-                </button>
               )}
-              {canDelete && event && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onDeleteEvent({
-                      kind: 'event',
-                      id: event.id,
-                      title: event.title,
-                    })
-                  }
-                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                >
-                  Видалити
-                </button>
-              )}
-              {canDelete && sharing && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onDeleteSharing({
-                      kind: 'sharing',
-                      id: sharing.id,
-                      title: sharing.title,
-                    })
-                  }
-                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                >
-                  Видалити
-                </button>
-              )}
-              {isOwner && (
-                <button
-                  type="button"
-                  disabled
-                  className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-400"
-                >
-                  Редагувати
-                </button>
+
+              {actionError && (
+                <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {actionError}
+                </p>
               )}
             </div>
+          </div>
+        )}
+
+        {item && (
+          <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 p-6 pt-4">
+            {event && (
+              <button
+                type="button"
+                onClick={() => (joined ? onLeave(event.id) : onJoin(event.id))}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                {joined ? 'Відмовитися' : 'Приєднатися'}
+              </button>
+            )}
+            {canCompleteEvent && event && (
+              <button
+                type="button"
+                onClick={() =>
+                  onCompleteEvent({
+                    kind: 'event',
+                    id: event.id,
+                    title: event.title,
+                  })
+                }
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Завершити івент
+              </button>
+            )}
+            {canCompleteSharing && sharing && (
+              <button
+                type="button"
+                onClick={() =>
+                  onCompleteSharing({
+                    kind: 'sharing',
+                    id: sharing.id,
+                    title: sharing.title,
+                  })
+                }
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Виконано
+              </button>
+            )}
+            {canDelete && event && (
+              <button
+                type="button"
+                onClick={() =>
+                  onDeleteEvent({
+                    kind: 'event',
+                    id: event.id,
+                    title: event.title,
+                  })
+                }
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Видалити
+              </button>
+            )}
+            {canDelete && sharing && (
+              <button
+                type="button"
+                onClick={() =>
+                  onDeleteSharing({
+                    kind: 'sharing',
+                    id: sharing.id,
+                    title: sharing.title,
+                  })
+                }
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Видалити
+              </button>
+            )}
+            {isOwner && (
+              <Link
+                to={
+                  event
+                    ? `/feed/create?eventId=${event.id}`
+                    : `/feed/create?sharingId=${sharing?.id}`
+                }
+                className={
+                  'rounded-md border border-gray-200 px-4 py-2 text-sm ' +
+                  'font-medium text-gray-700 hover:bg-gray-50'
+                }
+              >
+                Редагувати
+              </Link>
+            )}
           </div>
         )}
       </div>

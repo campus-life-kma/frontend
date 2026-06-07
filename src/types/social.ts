@@ -46,10 +46,15 @@ export interface SocialEventPayload {
   max_person: number;
   is_faculty_only: boolean;
   is_major_only: boolean;
+  room?: number | null;
   floor?: number | null;
   custom_location?: string | null;
 }
 
+export type SocialEventUpdatePayload = Partial<SocialEventPayload>;
+
 export interface SharingRequestPayload {
   title: string;
 }
+
+export type SharingRequestUpdatePayload = Partial<SharingRequestPayload>;
