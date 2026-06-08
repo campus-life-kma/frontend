@@ -1045,7 +1045,7 @@ function ProfileDetailsModal({
                   }
                   className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                 >
-                  {joined ? 'Відмовитися' : 'Приєднатися'}
+                  {joined ? "Від'єднатися" : 'Приєднатися'}
                 </button>
               )}
               {canManage && event && (

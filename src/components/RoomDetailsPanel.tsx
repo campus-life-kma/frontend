@@ -142,7 +142,7 @@ export default function RoomDetailsPanel({
                   <span className="flex-1">{resource.name}</span>
                   {resource.is_blocked && (
                     <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">
-                      зайнято
+                      заблоковано
                     </span>
                   )}
                 </Link>
