@@ -11,6 +11,7 @@ export interface ResourceScheduleBooking {
 export interface Booking {
   id: number;
   user: UserOnMap;
+  cancelled_by: UserOnMap | null;
   resource_id: number;
   resource_name: string;
   room_id: number;

@@ -845,7 +845,7 @@ function DetailsModal({
   const isOwner = item?.creator.id === currentUserId;
   const canDelete = item ? isOwner || canModerateItem(item) : false;
   const canCompleteSharing =
-    Boolean(sharing) && sharing?.status === 'ACTIVE' && canDelete;
+    Boolean(sharing) && sharing?.status === 'ACTIVE' && isOwner;
   const canCompleteEvent = event ? isOwner && isActiveEvent(event) : false;
   const joined =
     event?.participants?.some(
