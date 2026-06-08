@@ -70,6 +70,17 @@ function formatSocialStatus(status: string): string {
   return labels[status] ?? status;
 }
 
+function formatAnnouncementTarget(announcement: Announcement): string {
+  const labels: Record<string, string> = {
+    GLOBAL: 'Для всього гуртожитку',
+    FLOOR: 'Для вашого поверху',
+    ROOM: 'Для вашої кімнати',
+    SPECIFIC_USERS: 'Особисте оголошення',
+  };
+
+  return labels[announcement.target_type] ?? 'Оголошення для вас';
+}
+
 function formatEventLocation(
   event: SocialEvent,
   floors: FloorListItem[]
@@ -540,7 +551,7 @@ function AnnouncementBanner({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold tracking-wide text-blue-700 uppercase">
-            Оголошення · {announcement.target_type}
+            Оголошення · {formatAnnouncementTarget(announcement)}
           </p>
           <h2 className="mt-1 text-base font-semibold text-blue-950">
             {announcement.title}
