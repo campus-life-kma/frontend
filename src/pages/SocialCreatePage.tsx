@@ -9,7 +9,7 @@ import {
   updateEvent,
   updateSharingRequest,
 } from '../api/social';
-import { getFloors } from '../api/locations';
+import { getFloors, getRooms } from '../api/locations';
 import ProfileMenu from '../components/ProfileMenu';
 import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
@@ -120,6 +120,12 @@ export default function SocialCreatePage() {
     enabled: !!user?.dormitory_id,
   });
 
+  const roomsQuery = useQuery({
+    queryKey: ['create-feed-rooms'],
+    queryFn: getRooms,
+    enabled: type === 'event',
+  });
+
   const eventDetailQuery = useQuery({
     queryKey: ['event-detail', editEventId],
     queryFn: () => getEvent(editEventId),
@@ -149,7 +155,7 @@ export default function SocialCreatePage() {
           is_faculty_only: event.is_faculty_only,
           is_major_only: event.is_major_only,
           room: event.room_id ? String(event.room_id) : '',
-          floor: !event.room_id && event.floor_id ? String(event.floor_id) : '',
+          floor: event.floor_id ? String(event.floor_id) : '',
           custom_location: event.custom_location ?? '',
         });
         setInitializedEditKey(editKey);
@@ -223,6 +229,45 @@ export default function SocialCreatePage() {
     return '/feed';
   }, [editEventId, editSharingId, isEditingEvent, isEditingSharing]);
 
+  const floorNumberById = useMemo(
+    () =>
+      new Map(
+        (floorsQuery.data ?? []).map((floor) => [floor.id, floor.number])
+      ),
+    [floorsQuery.data]
+  );
+
+  const roomById = useMemo(
+    () => new Map((roomsQuery.data ?? []).map((room) => [room.id, room])),
+    [roomsQuery.data]
+  );
+
+  const selectedFloorId = eventForm.floor ? Number(eventForm.floor) : null;
+  const selectedRoom = eventForm.room
+    ? roomById.get(Number(eventForm.room))
+    : null;
+  const selectedFloorNumber = selectedFloorId
+    ? floorNumberById.get(selectedFloorId)
+    : null;
+
+  const roomOptions = useMemo(() => {
+    const floors = floorsQuery.data ?? [];
+    const floorIds = new Set(floors.map((floor) => floor.id));
+
+    return (roomsQuery.data ?? [])
+      .filter((room) => floorIds.size === 0 || floorIds.has(room.floor))
+      .filter((room) => !selectedFloorId || room.floor === selectedFloorId)
+      .sort((firstRoom, secondRoom) => {
+        const firstFloor = floorNumberById.get(firstRoom.floor) ?? 0;
+        const secondFloor = floorNumberById.get(secondRoom.floor) ?? 0;
+        if (firstFloor !== secondFloor) return firstFloor - secondFloor;
+        return firstRoom.name.localeCompare(secondRoom.name, 'uk', {
+          numeric: true,
+          sensitivity: 'base',
+        });
+      });
+  }, [floorNumberById, floorsQuery.data, roomsQuery.data, selectedFloorId]);
+
   function submitEvent() {
     setError(null);
     if (!eventForm.title.trim() || !eventForm.description.trim()) {
@@ -238,7 +283,7 @@ export default function SocialCreatePage() {
       !eventForm.floor &&
       !eventForm.custom_location.trim()
     ) {
-      setError('Вкажіть поверх або довільну локацію.');
+      setError('Вкажіть кімнату, поверх або довільну локацію.');
       return;
     }
 
@@ -451,17 +496,43 @@ export default function SocialCreatePage() {
                     </p>
                   )}
                 </div>
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-sm font-medium text-gray-700">
+                    Локація івенту
+                  </p>
+                  <p className="mt-2 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                    {selectedRoom
+                      ? `${selectedRoom.name}${selectedFloorNumber ? ` · ${selectedFloorNumber} поверх` : ''}`
+                      : eventForm.floor
+                        ? selectedFloorNumber
+                          ? `Поверх ${selectedFloorNumber}`
+                          : `Поверх #${eventForm.floor}`
+                        : eventForm.custom_location.trim()
+                          ? eventForm.custom_location.trim()
+                          : 'Оберіть поверх, кімнату або довільну локацію.'}
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block text-sm font-medium text-gray-700">
                   Поверх
                   <select
                     value={eventForm.floor}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const nextFloor = event.target.value;
+                      const currentRoom = eventForm.room
+                        ? roomById.get(Number(eventForm.room))
+                        : null;
                       setEventForm((form) => ({
                         ...form,
-                        room: '',
-                        floor: event.target.value,
-                      }))
-                    }
+                        room:
+                          currentRoom && String(currentRoom.floor) === nextFloor
+                            ? form.room
+                            : '',
+                        floor: nextFloor,
+                        custom_location: '',
+                      }));
+                    }}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   >
                     <option value="">Не обрано</option>
@@ -472,12 +543,54 @@ export default function SocialCreatePage() {
                     ))}
                   </select>
                 </label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Кімната
+                  <select
+                    value={eventForm.room}
+                    onChange={(event) => {
+                      const room = event.target.value
+                        ? roomById.get(Number(event.target.value))
+                        : null;
+                      setEventForm((form) => ({
+                        ...form,
+                        room: event.target.value,
+                        floor: room ? String(room.floor) : form.floor,
+                        custom_location: '',
+                      }));
+                    }}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  >
+                    <option value="">
+                      {roomsQuery.isLoading
+                        ? 'Завантажуємо кімнати...'
+                        : selectedFloorNumber
+                          ? `Увесь ${selectedFloorNumber} поверх`
+                          : 'Не обрано'}
+                    </option>
+                    {roomOptions.map((room) => {
+                      const floorNumber = floorNumberById.get(room.floor);
+                      return (
+                        <option key={room.id} value={room.id}>
+                          {room.name}
+                          {!selectedFloorId && floorNumber
+                            ? ` · ${floorNumber} поверх`
+                            : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
               </div>
               <TextInput
                 label="Довільна локація"
                 value={eventForm.custom_location}
                 onChange={(value) =>
-                  setEventForm((form) => ({ ...form, custom_location: value }))
+                  setEventForm((form) => ({
+                    ...form,
+                    room: '',
+                    floor: '',
+                    custom_location: value,
+                  }))
                 }
               />
               <div className="flex flex-wrap gap-3">

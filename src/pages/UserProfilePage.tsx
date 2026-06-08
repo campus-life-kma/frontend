@@ -151,6 +151,10 @@ function canManageItem(
   return item.creator.id === currentUserId || currentRole === 'ADMIN';
 }
 
+function canCancelSocialItem(item: FeedItem): boolean {
+  return item.status === 'ACTIVE';
+}
+
 export default function UserProfilePage() {
   const { userId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -934,6 +938,8 @@ function ProfileDetailsModal({
   const canManage = item
     ? canManageItem(currentUserId, currentRole, item)
     : false;
+  const canCancel = item ? canManage && canCancelSocialItem(item) : false;
+  const canEdit = item ? canManage && canCancelSocialItem(item) : false;
 
   return (
     <div
@@ -1048,23 +1054,38 @@ function ProfileDetailsModal({
                   {joined ? "Від'єднатися" : 'Приєднатися'}
                 </button>
               )}
-              {canManage && event && (
+              {canCancel && event && (
                 <button
                   type="button"
                   onClick={() => onDeleteEvent(event.id)}
                   className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
                 >
-                  Видалити
+                  Скасувати
                 </button>
               )}
-              {canManage && sharing && (
+              {canCancel && sharing && (
                 <button
                   type="button"
                   onClick={() => onDeleteSharing(sharing.id)}
                   className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
                 >
-                  Видалити
+                  Скасувати
                 </button>
+              )}
+              {canEdit && (
+                <Link
+                  to={
+                    event
+                      ? `/feed/create?eventId=${event.id}`
+                      : `/feed/create?sharingId=${sharing?.id}`
+                  }
+                  className={
+                    'rounded-md bg-orange-500 px-4 py-2 text-sm ' +
+                    'font-semibold text-white hover:bg-orange-600'
+                  }
+                >
+                  Редагувати
+                </Link>
               )}
             </div>
           </div>

@@ -85,7 +85,14 @@ function formatEventLocation(
   event: SocialEvent,
   floors: FloorListItem[]
 ): string {
-  if (event.room_name) return event.room_name;
+  if (event.room_name) {
+    const floor = event.floor_id
+      ? floors.find((item) => item.id === event.floor_id)
+      : null;
+    return floor
+      ? `${event.room_name} · ${floor.number} поверх`
+      : event.room_name;
+  }
   if (event.custom_location) return event.custom_location;
 
   if (event.floor_id) {
@@ -115,6 +122,10 @@ function isActiveEvent(event: SocialEvent): boolean {
     new Date(event.start_time) <= now &&
     new Date(event.end_time) > now
   );
+}
+
+function canCancelSocialItem(item: FeedItem): boolean {
+  return item.status === 'ACTIVE';
 }
 
 function toApiFeedType(type: FeedType): 'all' | 'event' | 'sharing_request' {
@@ -492,10 +503,10 @@ export default function SocialFeedPage() {
       {pendingDelete && (
         <ConfirmDialog
           variant="danger"
-          title={`Видалити ${pendingDeleteLabel}?`}
-          description={`«${pendingDelete.title}» буде прибрано зі стрічки. Цю дію не можна скасувати через інтерфейс.`}
+          title={`Скасувати ${pendingDeleteLabel}?`}
+          description={`«${pendingDelete.title}» буде скасовано і прибрано з активної стрічки.`}
           cancelLabel="Залишити"
-          confirmLabel={isDeleting ? 'Видаляємо…' : 'Видалити'}
+          confirmLabel={isDeleting ? 'Скасовуємо…' : 'Скасувати'}
           isPending={isDeleting}
           onClose={() => setPendingDelete(null)}
           onConfirm={() => {
@@ -854,7 +865,10 @@ function DetailsModal({
 }) {
   const item = event ?? sharing;
   const isOwner = item?.creator.id === currentUserId;
-  const canDelete = item ? isOwner || canModerateItem(item) : false;
+  const canDelete = item
+    ? (isOwner || canModerateItem(item)) && canCancelSocialItem(item)
+    : false;
+  const canEdit = item ? isOwner && canCancelSocialItem(item) : false;
   const canCompleteSharing =
     Boolean(sharing) && sharing?.status === 'ACTIVE' && isOwner;
   const canCompleteEvent = event ? isOwner && isActiveEvent(event) : false;
@@ -1046,7 +1060,7 @@ function DetailsModal({
                 }
                 className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
               >
-                Видалити
+                Скасувати
               </button>
             )}
             {canDelete && sharing && (
@@ -1061,10 +1075,10 @@ function DetailsModal({
                 }
                 className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
               >
-                Видалити
+                Скасувати
               </button>
             )}
-            {isOwner && (
+            {canEdit && (
               <Link
                 to={
                   event
@@ -1072,13 +1086,23 @@ function DetailsModal({
                     : `/feed/create?sharingId=${sharing?.id}`
                 }
                 className={
-                  'rounded-md border border-gray-200 px-4 py-2 text-sm ' +
-                  'font-medium text-gray-700 hover:bg-gray-50'
+                  'rounded-md bg-orange-500 px-4 py-2 text-sm ' +
+                  'font-semibold text-white hover:bg-orange-600'
                 }
               >
                 Редагувати
               </Link>
             )}
+            <button
+              type="button"
+              onClick={onClose}
+              className={
+                'rounded-md bg-emerald-600 px-4 py-2 text-sm ' +
+                'font-semibold text-white hover:bg-emerald-700'
+              }
+            >
+              Готово
+            </button>
           </div>
         )}
       </div>
