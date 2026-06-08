@@ -151,6 +151,27 @@ function normalizeError(error: unknown): string {
   return 'Не вдалося виконати дію.';
 }
 
+function readAcknowledgedTimedAnnouncements(storageKey: string | null) {
+  if (!storageKey || typeof window === 'undefined') return new Set<number>();
+
+  try {
+    const stored = localStorage.getItem(storageKey);
+    const ids = stored ? (JSON.parse(stored) as number[]) : [];
+    return new Set(ids);
+  } catch {
+    return new Set<number>();
+  }
+}
+
+function writeAcknowledgedTimedAnnouncements(
+  storageKey: string | null,
+  ids: Set<number>
+) {
+  if (!storageKey || typeof window === 'undefined') return;
+
+  localStorage.setItem(storageKey, JSON.stringify([...ids]));
+}
+
 function canModerate(
   role: string | null | undefined,
   userFloorId: string | null | undefined,
@@ -167,7 +188,10 @@ export default function SocialFeedPage() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const [page, setPage] = useState(1);
-  const [dismissedTimed, setDismissedTimed] = useState<Set<number>>(new Set());
+  const [acknowledgedTimedState, setAcknowledgedTimedState] = useState<{
+    key: string | null;
+    ids: Set<number>;
+  }>({ key: null, ids: new Set() });
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(
     null
@@ -189,6 +213,17 @@ export default function SocialFeedPage() {
     searchParams.get('mapFloorId') ??
     (floor === 'mine' ? user?.floor_id : floor !== 'all' ? floor : null);
   const mapPath = mapFloorId ? `/?floorId=${mapFloorId}` : '/';
+  const acknowledgedTimedStorageKey = user?.id
+    ? `campus-life:acknowledged-timed-announcements:${user.id}`
+    : null;
+
+  const acknowledgedTimed = useMemo(() => {
+    if (acknowledgedTimedState.key === acknowledgedTimedStorageKey) {
+      return acknowledgedTimedState.ids;
+    }
+
+    return readAcknowledgedTimedAnnouncements(acknowledgedTimedStorageKey);
+  }, [acknowledgedTimedState, acknowledgedTimedStorageKey]);
 
   const feedFilters = useMemo(
     () => ({
@@ -372,10 +407,18 @@ export default function SocialFeedPage() {
     setActionError(null);
   }
 
-  const activeAnnouncements =
-    announcementsQuery.data?.filter(
-      (announcement) => !dismissedTimed.has(announcement.id)
-    ) ?? [];
+  function acknowledgeTimedAnnouncement(announcementId: number) {
+    const next = new Set(acknowledgedTimed).add(announcementId);
+    try {
+      writeAcknowledgedTimedAnnouncements(acknowledgedTimedStorageKey, next);
+    } catch {
+      return;
+    }
+    setAcknowledgedTimedState({ key: acknowledgedTimedStorageKey, ids: next });
+    readMutation.mutate(announcementId);
+  }
+
+  const activeAnnouncements = announcementsQuery.data ?? [];
   const pendingDeleteLabel =
     pendingDelete?.kind === 'event' ? 'подію' : 'запит на шеринг';
   const isDeleting =
@@ -417,8 +460,12 @@ export default function SocialFeedPage() {
               key={announcement.id}
               announcement={announcement}
               onRead={() => readMutation.mutate(announcement.id)}
-              onDismissTimed={() =>
-                setDismissedTimed((prev) => new Set(prev).add(announcement.id))
+              onAcknowledgeTimed={() =>
+                acknowledgeTimedAnnouncement(announcement.id)
+              }
+              showAction={
+                !announcement.expires_at ||
+                !acknowledgedTimed.has(announcement.id)
               }
             />
           ))}
@@ -548,11 +595,13 @@ export default function SocialFeedPage() {
 function AnnouncementBanner({
   announcement,
   onRead,
-  onDismissTimed,
+  onAcknowledgeTimed,
+  showAction,
 }: {
   announcement: Announcement;
   onRead: () => void;
-  onDismissTimed: () => void;
+  onAcknowledgeTimed: () => void;
+  showAction: boolean;
 }) {
   const expires = announcement.expires_at
     ? new Date(announcement.expires_at)
@@ -574,16 +623,18 @@ function AnnouncementBanner({
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={expires ? onDismissTimed : onRead}
-          className={
-            'shrink-0 rounded-md border border-blue-300 bg-white px-3 py-1.5 ' +
-            'text-sm font-medium text-blue-700 hover:bg-blue-100'
-          }
-        >
-          Зрозуміло
-        </button>
+        {showAction && (
+          <button
+            type="button"
+            onClick={expires ? onAcknowledgeTimed : onRead}
+            className={
+              'shrink-0 rounded-md border border-blue-300 bg-white px-3 py-1.5 ' +
+              'text-sm font-medium text-blue-700 hover:bg-blue-100'
+            }
+          >
+            Зрозуміло
+          </button>
+        )}
       </div>
     </article>
   );
