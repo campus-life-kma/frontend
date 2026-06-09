@@ -19,3 +19,8 @@ export async function checkIn(roomId: number): Promise<PresenceResponse> {
 export async function goHome(): Promise<void> {
   await api.post('/presence/go-home/');
 }
+
+export async function getMyPresence(): Promise<PresenceResponse | null> {
+  const { data } = await api.get<PresenceResponse | null>('/presence/me/');
+  return data ?? null;
+}
