@@ -18,22 +18,27 @@ import {
   updateEvent,
 } from '../api/social';
 import {
+  createAnnouncement,
   getActiveAnnouncements,
   markAnnouncementRead,
 } from '../api/announcements';
-import { getFloors } from '../api/locations';
+import { getFloors, getRooms } from '../api/locations';
 import UserAvatar from '../components/UserAvatar';
 import ProfileMenu from '../components/ProfileMenu';
 import ConfirmDialog from '../components/UI/ConfirmDialog';
 import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
-import type { Announcement } from '../types/announcements';
+import type {
+  Announcement,
+  AnnouncementPayload,
+  AnnouncementTargetType,
+} from '../types/announcements';
 import type {
   FeedItem,
   SocialEvent,
   SocialSharingRequest,
 } from '../types/social';
-import type { FloorListItem } from '../types/locations';
+import type { FloorListItem, RoomListItem } from '../types/locations';
 
 type FeedType = 'all' | 'events' | 'sharing';
 type FeedOrdering = 'created_at' | 'start_time';
@@ -43,6 +48,19 @@ type PendingDelete =
 type PendingComplete =
   | { kind: 'event'; id: number; title: string }
   | { kind: 'sharing'; id: number; title: string };
+
+const ANNOUNCEMENT_ERROR_LABELS: Record<string, string> = {
+  title: 'Заголовок',
+  message: 'Текст',
+  target_type: 'Аудиторія',
+  target_floor: 'Поверх',
+  target_room: 'Кімната',
+  target_users: 'Користувачі',
+  expires_at: 'Час завершення',
+  is_pinned: 'Закріплення',
+  detail: '',
+  non_field_errors: 'Помилка',
+};
 
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat('uk-UA', {
@@ -151,6 +169,42 @@ function normalizeError(error: unknown): string {
   return 'Не вдалося виконати дію.';
 }
 
+function flattenErrorMessages(
+  value: unknown,
+  labels: Record<string, string> = {}
+): string[] {
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value))
+    return value.flatMap((item) => flattenErrorMessages(item, labels));
+  if (typeof value === 'object' && value !== null) {
+    return Object.entries(value).flatMap(([key, nestedValue]) => {
+      const messages = flattenErrorMessages(nestedValue, labels);
+      const label = labels[key] ?? key;
+      if (!label) return messages;
+      return messages.map((message) => `${label}: ${message}`);
+    });
+  }
+  return [];
+}
+
+function normalizeAnnouncementError(error: unknown): string {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof error.response === 'object' &&
+    error.response !== null &&
+    'data' in error.response
+  ) {
+    const messages = flattenErrorMessages(
+      error.response.data,
+      ANNOUNCEMENT_ERROR_LABELS
+    );
+    if (messages.length > 0) return messages.join(' ');
+  }
+  return 'Не вдалося створити оголошення. Перевірте поля і спробуйте ще раз.';
+}
+
 function readAcknowledgedTimedAnnouncements(storageKey: string | null) {
   if (!storageKey || typeof window === 'undefined') return new Set<number>();
 
@@ -198,6 +252,10 @@ export default function SocialFeedPage() {
   );
   const [pendingComplete, setPendingComplete] =
     useState<PendingComplete | null>(null);
+  const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
+  const [announcementError, setAnnouncementError] = useState<string | null>(
+    null
+  );
 
   const type = (searchParams.get('type') as FeedType | null) ?? 'all';
   const q = searchParams.get('q') ?? '';
@@ -253,6 +311,15 @@ export default function SocialFeedPage() {
     queryKey: ['feed-floors', user?.dormitory_id],
     queryFn: () => getFloors(user!.dormitory_id!),
     enabled: !!user?.dormitory_id,
+  });
+
+  const canCreateAnnouncements =
+    user?.role === 'ADMIN' || user?.role === 'MODERATOR';
+
+  const roomsQuery = useQuery({
+    queryKey: ['announcement-rooms'],
+    queryFn: getRooms,
+    enabled: canCreateAnnouncements,
   });
 
   const eventDetailQuery = useQuery({
@@ -312,6 +379,18 @@ export default function SocialFeedPage() {
     mutationFn: markAnnouncementRead,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['announcements-active'] }),
+  });
+
+  const createAnnouncementMutation = useMutation({
+    mutationFn: createAnnouncement,
+    onSuccess: async () => {
+      setAnnouncementModalOpen(false);
+      setAnnouncementError(null);
+      await queryClient.invalidateQueries({
+        queryKey: ['announcements-active'],
+      });
+    },
+    onError: (error) => setAnnouncementError(normalizeAnnouncementError(error)),
   });
 
   const joinMutation = useMutation({
@@ -455,6 +534,23 @@ export default function SocialFeedPage() {
 
       <main className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-6">
         <section className="space-y-3">
+          {canCreateAnnouncements && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setAnnouncementError(null);
+                  setAnnouncementModalOpen(true);
+                }}
+                className={
+                  'rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold ' +
+                  'text-white shadow-sm hover:bg-sky-700'
+                }
+              >
+                + Оголошення
+              </button>
+            </div>
+          )}
           {activeAnnouncements.map((announcement) => (
             <AnnouncementBanner
               key={announcement.id}
@@ -544,6 +640,22 @@ export default function SocialFeedPage() {
           onDeleteSharing={(item) => setPendingDelete(item)}
           onCompleteEvent={(item) => setPendingComplete(item)}
           onCompleteSharing={(item) => setPendingComplete(item)}
+        />
+      )}
+
+      {announcementModalOpen && user && (
+        <AnnouncementCreateModal
+          currentRole={user.role}
+          userFloorId={user.floor_id}
+          floors={floorsQuery.data ?? []}
+          rooms={roomsQuery.data ?? []}
+          error={announcementError}
+          isPending={createAnnouncementMutation.isPending}
+          onClose={() => {
+            setAnnouncementModalOpen(false);
+            setAnnouncementError(null);
+          }}
+          onSubmit={(payload) => createAnnouncementMutation.mutate(payload)}
         />
       )}
 
@@ -637,6 +749,258 @@ function AnnouncementBanner({
         )}
       </div>
     </article>
+  );
+}
+
+function AnnouncementCreateModal({
+  currentRole,
+  userFloorId,
+  floors,
+  rooms,
+  error,
+  isPending,
+  onClose,
+  onSubmit,
+}: {
+  currentRole: string | null;
+  userFloorId: string | null;
+  floors: FloorListItem[];
+  rooms: RoomListItem[];
+  error: string | null;
+  isPending: boolean;
+  onClose: () => void;
+  onSubmit: (payload: AnnouncementPayload) => void;
+}) {
+  const isAdmin = currentRole === 'ADMIN';
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [targetType, setTargetType] = useState<AnnouncementTargetType>(
+    isAdmin ? 'GLOBAL' : 'FLOOR'
+  );
+  const [targetFloor, setTargetFloor] = useState(userFloorId ?? '');
+  const [targetRoom, setTargetRoom] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
+  const [isPinned, setIsPinned] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const floorById = useMemo(
+    () => new Map(floors.map((floor) => [floor.id, floor])),
+    [floors]
+  );
+  const roomOptions = useMemo(() => {
+    const availableFloorIds = new Set(floors.map((floor) => floor.id));
+    return rooms
+      .filter(
+        (room) =>
+          availableFloorIds.size === 0 || availableFloorIds.has(room.floor)
+      )
+      .sort((firstRoom, secondRoom) => {
+        const firstFloor = floorById.get(firstRoom.floor)?.number ?? 0;
+        const secondFloor = floorById.get(secondRoom.floor)?.number ?? 0;
+        if (firstFloor !== secondFloor) return firstFloor - secondFloor;
+        return firstRoom.name.localeCompare(secondRoom.name, 'uk', {
+          numeric: true,
+          sensitivity: 'base',
+        });
+      });
+  }, [floorById, floors, rooms]);
+
+  function submit() {
+    setLocalError(null);
+    const cleanTitle = title.trim();
+    const cleanMessage = message.trim();
+
+    if (!cleanTitle || !cleanMessage) {
+      setLocalError('Заповніть заголовок і текст оголошення.');
+      return;
+    }
+
+    if (targetType === 'FLOOR' && !targetFloor) {
+      setLocalError('Оберіть поверх для оголошення.');
+      return;
+    }
+
+    if (targetType === 'ROOM' && !targetRoom) {
+      setLocalError('Оберіть кімнату для оголошення.');
+      return;
+    }
+
+    if (expiresAt && new Date(expiresAt) <= new Date()) {
+      setLocalError('Час завершення оголошення має бути в майбутньому.');
+      return;
+    }
+
+    onSubmit({
+      title: cleanTitle,
+      message: cleanMessage,
+      target_type: targetType,
+      target_floor: targetType === 'FLOOR' ? Number(targetFloor) : null,
+      target_room: targetType === 'ROOM' ? Number(targetRoom) : null,
+      expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+      is_pinned: isPinned,
+    });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-lg bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-6 pb-4">
+          <div>
+            <span className="text-xs font-semibold tracking-wide text-sky-700 uppercase">
+              Оголошення
+            </span>
+            <h2 className="mt-1 text-xl font-semibold text-gray-950">
+              Створити оголошення
+            </h2>
+          </div>
+          <button
+            className="rounded-full px-2 text-2xl text-gray-400 hover:bg-gray-100"
+            onClick={onClose}
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-4 p-6">
+          <label className="block text-sm font-medium text-gray-700">
+            Заголовок
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </label>
+
+          <label className="block text-sm font-medium text-gray-700">
+            Текст оголошення
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              rows={4}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Аудиторія
+              <select
+                value={targetType}
+                disabled={!isAdmin}
+                onChange={(event) => {
+                  const value = event.target.value as AnnouncementTargetType;
+                  setTargetType(value);
+                  setTargetFloor(value === 'FLOOR' ? (userFloorId ?? '') : '');
+                  setTargetRoom('');
+                }}
+                className="mt-1 block h-10 w-full rounded-md border border-gray-300 px-3 text-sm disabled:bg-gray-50"
+              >
+                {isAdmin && <option value="GLOBAL">Весь гуртожиток</option>}
+                <option value="FLOOR">Поверх</option>
+                {isAdmin && <option value="ROOM">Кімната</option>}
+              </select>
+            </label>
+
+            <label className="block text-sm font-medium text-gray-700">
+              Діє до
+              <input
+                type="datetime-local"
+                value={expiresAt}
+                onChange={(event) => setExpiresAt(event.target.value)}
+                className="mt-1 block h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
+              />
+            </label>
+          </div>
+
+          {targetType === 'FLOOR' && (
+            <label className="block text-sm font-medium text-gray-700">
+              Поверх
+              <select
+                value={targetFloor}
+                disabled={!isAdmin}
+                onChange={(event) => setTargetFloor(event.target.value)}
+                className="mt-1 block h-10 w-full rounded-md border border-gray-300 px-3 text-sm disabled:bg-gray-50"
+              >
+                <option value="">Оберіть поверх</option>
+                {floors.map((floor) => (
+                  <option key={floor.id} value={floor.id}>
+                    Поверх {floor.number}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {targetType === 'ROOM' && (
+            <label className="block text-sm font-medium text-gray-700">
+              Кімната
+              <select
+                value={targetRoom}
+                onChange={(event) => setTargetRoom(event.target.value)}
+                className="mt-1 block h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
+              >
+                <option value="">Оберіть кімнату</option>
+                {roomOptions.map((room) => {
+                  const floor = floorById.get(room.floor);
+                  return (
+                    <option key={room.id} value={room.id}>
+                      {room.name}
+                      {floor ? ` · ${floor.number} поверх` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+          )}
+
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={isPinned}
+              onChange={(event) => setIsPinned(event.target.checked)}
+              className="h-4 w-4 accent-sky-600"
+            />
+            Закріпити зверху
+          </label>
+
+          {(localError || error) && (
+            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              {localError || error}
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-gray-100 p-6 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className={
+              'rounded-md border border-gray-200 px-4 py-2 text-sm ' +
+              'font-medium text-gray-700 hover:bg-gray-50'
+            }
+          >
+            Скасувати
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={isPending}
+            className={
+              'rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold ' +
+              'text-white hover:bg-sky-700 disabled:bg-gray-300'
+            }
+          >
+            {isPending ? 'Створюємо…' : 'Створити'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

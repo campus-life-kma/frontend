@@ -13,3 +13,15 @@ export interface Announcement {
   expires_at: string | null;
   is_pinned: boolean;
 }
+
+export type AnnouncementTargetType = 'GLOBAL' | 'FLOOR' | 'ROOM';
+
+export interface AnnouncementPayload {
+  title: string;
+  message: string;
+  target_type: AnnouncementTargetType;
+  target_floor?: number | null;
+  target_room?: number | null;
+  expires_at?: string | null;
+  is_pinned?: boolean;
+}
