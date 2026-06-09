@@ -152,8 +152,6 @@ function buildOverflowNode(count: number, cx: number, cy: number): SVGElement {
   return wrapper;
 }
 
-// One on-map icon per distinct resource type (two stoves + one washer => a
-// stove icon and a washer icon). Uses the server-provided icon per type.
 interface ResourceIcon {
   key: string;
   iconUrl: string | null;
