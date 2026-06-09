@@ -20,6 +20,7 @@ import {
 import {
   createAnnouncement,
   getActiveAnnouncements,
+  getAnnouncementRecipients,
   markAnnouncementRead,
 } from '../api/announcements';
 import { getFloors, getRooms } from '../api/locations';
@@ -31,6 +32,7 @@ import { useAuthStore } from '../store/authStore';
 import type {
   Announcement,
   AnnouncementPayload,
+  AnnouncementRecipient,
   AnnouncementTargetType,
 } from '../types/announcements';
 import type {
@@ -779,6 +781,11 @@ function AnnouncementCreateModal({
   );
   const [targetFloor, setTargetFloor] = useState(userFloorId ?? '');
   const [targetRoom, setTargetRoom] = useState('');
+  const [selectedRecipients, setSelectedRecipients] = useState<
+    AnnouncementRecipient[]
+  >([]);
+  const [recipientSearch, setRecipientSearch] = useState('');
+  const [recipientOrdering, setRecipientOrdering] = useState('display_name');
   const [expiresAt, setExpiresAt] = useState('');
   const [isPinned, setIsPinned] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -803,6 +810,33 @@ function AnnouncementCreateModal({
         });
       });
   }, [floorById, floors, rooms]);
+  const selectedRecipientIds = useMemo(
+    () => new Set(selectedRecipients.map((recipient) => recipient.id)),
+    [selectedRecipients]
+  );
+  const recipientsQuery = useQuery({
+    queryKey: [
+      'announcement-recipients',
+      recipientSearch,
+      recipientOrdering,
+      targetType,
+    ],
+    queryFn: () =>
+      getAnnouncementRecipients({
+        q: recipientSearch,
+        ordering: recipientOrdering,
+      }),
+    enabled: targetType === 'SPECIFIC_USERS',
+  });
+
+  function toggleRecipient(recipient: AnnouncementRecipient) {
+    setSelectedRecipients((current) => {
+      if (current.some((item) => item.id === recipient.id)) {
+        return current.filter((item) => item.id !== recipient.id);
+      }
+      return [...current, recipient];
+    });
+  }
 
   function submit() {
     setLocalError(null);
@@ -824,6 +858,11 @@ function AnnouncementCreateModal({
       return;
     }
 
+    if (targetType === 'SPECIFIC_USERS' && selectedRecipients.length === 0) {
+      setLocalError('Оберіть хоча б одного адресата оголошення.');
+      return;
+    }
+
     if (expiresAt && new Date(expiresAt) <= new Date()) {
       setLocalError('Час завершення оголошення має бути в майбутньому.');
       return;
@@ -835,6 +874,10 @@ function AnnouncementCreateModal({
       target_type: targetType,
       target_floor: targetType === 'FLOOR' ? Number(targetFloor) : null,
       target_room: targetType === 'ROOM' ? Number(targetRoom) : null,
+      target_users:
+        targetType === 'SPECIFIC_USERS'
+          ? selectedRecipients.map((recipient) => recipient.id)
+          : [],
       expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
       is_pinned: isPinned,
     });
@@ -842,32 +885,37 @@ function AnnouncementCreateModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl rounded-lg bg-white shadow-2xl"
+        className={
+          'flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col ' +
+          'rounded-lg bg-white shadow-2xl sm:max-h-[92dvh]'
+        }
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-6 pb-4">
-          <div>
-            <span className="text-xs font-semibold tracking-wide text-sky-700 uppercase">
-              Оголошення
-            </span>
-            <h2 className="mt-1 text-xl font-semibold text-gray-950">
-              Створити оголошення
-            </h2>
+        <div className="shrink-0 border-b border-gray-100 p-4 pb-3 sm:p-6 sm:pb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <span className="text-xs font-semibold tracking-wide text-sky-700 uppercase">
+                Оголошення
+              </span>
+              <h2 className="mt-1 text-lg font-semibold text-gray-950 sm:text-xl">
+                Створити оголошення
+              </h2>
+            </div>
+            <button
+              className="rounded-full px-2 text-2xl text-gray-400 hover:bg-gray-100"
+              onClick={onClose}
+              type="button"
+            >
+              ×
+            </button>
           </div>
-          <button
-            className="rounded-full px-2 text-2xl text-gray-400 hover:bg-gray-100"
-            onClick={onClose}
-            type="button"
-          >
-            ×
-          </button>
         </div>
 
-        <div className="space-y-4 p-6">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
           <label className="block text-sm font-medium text-gray-700">
             Заголовок
             <input
@@ -892,18 +940,19 @@ function AnnouncementCreateModal({
               Аудиторія
               <select
                 value={targetType}
-                disabled={!isAdmin}
                 onChange={(event) => {
                   const value = event.target.value as AnnouncementTargetType;
                   setTargetType(value);
                   setTargetFloor(value === 'FLOOR' ? (userFloorId ?? '') : '');
                   setTargetRoom('');
+                  setSelectedRecipients([]);
                 }}
-                className="mt-1 block h-10 w-full rounded-md border border-gray-300 px-3 text-sm disabled:bg-gray-50"
+                className="mt-1 block h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
               >
                 {isAdmin && <option value="GLOBAL">Весь гуртожиток</option>}
                 <option value="FLOOR">Поверх</option>
                 {isAdmin && <option value="ROOM">Кімната</option>}
+                <option value="SPECIFIC_USERS">Конкретні користувачі</option>
               </select>
             </label>
 
@@ -959,6 +1008,120 @@ function AnnouncementCreateModal({
             </label>
           )}
 
+          {targetType === 'SPECIFIC_USERS' && (
+            <div className="flex min-h-[420px] flex-col gap-3 rounded-lg border border-gray-200 p-3 sm:min-h-[460px]">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                <label className="block text-sm font-medium text-gray-700">
+                  Пошук адресата
+                  <input
+                    value={recipientSearch}
+                    onChange={(event) => setRecipientSearch(event.target.value)}
+                    placeholder="Ім'я, пошта, кімната, факультет..."
+                    className="mt-1 block h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
+                  />
+                </label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Сортування
+                  <select
+                    value={recipientOrdering}
+                    onChange={(event) =>
+                      setRecipientOrdering(event.target.value)
+                    }
+                    className="mt-1 block h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
+                  >
+                    <option value="display_name">За ім'ям</option>
+                    <option value="-display_name">За ім'ям спадно</option>
+                    <option value="email">За поштою</option>
+                    <option value="-email">За поштою спадно</option>
+                    <option value="role">За роллю</option>
+                    <option value="floor,room,display_name">За поверхом</option>
+                    <option value="room,display_name">За кімнатою</option>
+                    <option value="faculty,major,display_name">
+                      За факультетом
+                    </option>
+                    <option value="major,display_name">За спеціальністю</option>
+                    <option value="year,display_name">За курсом</option>
+                    <option value="id">За ID</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="max-h-24 min-h-11 overflow-y-auto rounded-md bg-gray-50 px-2 py-2">
+                {selectedRecipients.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedRecipients.map((recipient) => (
+                      <button
+                        key={recipient.id}
+                        type="button"
+                        onClick={() => toggleRecipient(recipient)}
+                        className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100"
+                      >
+                        {recipient.display_name} ×
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="px-1 py-1 text-xs text-gray-500">
+                    Обрані адресати з'являться тут.
+                  </p>
+                )}
+              </div>
+
+              <div className="h-64 overflow-y-auto rounded-md border border-gray-100 bg-gray-50 sm:h-72">
+                {recipientsQuery.isLoading && (
+                  <p className="px-3 py-4 text-sm text-gray-500">
+                    Завантажуємо адресатів...
+                  </p>
+                )}
+                {!recipientsQuery.isLoading &&
+                  (recipientsQuery.data?.length ?? 0) === 0 && (
+                    <p className="px-3 py-4 text-sm text-gray-500">
+                      Адресатів не знайдено.
+                    </p>
+                  )}
+                {recipientsQuery.data?.map((recipient) => (
+                  <label
+                    key={recipient.id}
+                    className={
+                      'flex cursor-pointer items-start gap-3 border-b ' +
+                      'border-gray-100 bg-white px-3 py-2 last:border-b-0 ' +
+                      'hover:bg-sky-50'
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRecipientIds.has(recipient.id)}
+                      onChange={() => toggleRecipient(recipient)}
+                      className="mt-1 h-4 w-4 accent-sky-600"
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-gray-800">
+                        {recipient.display_name}
+                      </span>
+                      <span className="block truncate text-xs text-gray-500">
+                        {recipient.email}
+                      </span>
+                      <span className="block text-xs text-gray-500">
+                        {[
+                          recipient.room_name
+                            ? `кімната ${recipient.room_name}`
+                            : null,
+                          recipient.floor_number
+                            ? `${recipient.floor_number} поверх`
+                            : null,
+                          recipient.major_name,
+                          recipient.faculty_name,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <input
               type="checkbox"
@@ -976,7 +1139,12 @@ function AnnouncementCreateModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 p-6 pt-4">
+        <div
+          className={
+            'flex shrink-0 flex-col-reverse gap-2 border-t border-gray-100 ' +
+            'p-4 sm:flex-row sm:justify-end sm:p-6 sm:pt-4'
+          }
+        >
           <button
             type="button"
             onClick={onClose}

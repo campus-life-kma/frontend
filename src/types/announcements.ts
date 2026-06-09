@@ -14,7 +14,11 @@ export interface Announcement {
   is_pinned: boolean;
 }
 
-export type AnnouncementTargetType = 'GLOBAL' | 'FLOOR' | 'ROOM';
+export type AnnouncementTargetType =
+  | 'GLOBAL'
+  | 'FLOOR'
+  | 'ROOM'
+  | 'SPECIFIC_USERS';
 
 export interface AnnouncementPayload {
   title: string;
@@ -22,6 +26,32 @@ export interface AnnouncementPayload {
   target_type: AnnouncementTargetType;
   target_floor?: number | null;
   target_room?: number | null;
+  target_users?: string[];
   expires_at?: string | null;
   is_pinned?: boolean;
+}
+
+export interface AnnouncementRecipient {
+  id: string;
+  display_name: string;
+  email: string;
+  role_name: string | null;
+  floor_id: number | null;
+  floor_number: number | null;
+  room_id: number | null;
+  room_name: string | null;
+  faculty_name: string | null;
+  major_name: string | null;
+  year: number | null;
+}
+
+export interface AnnouncementRecipientFilters {
+  q?: string;
+  ordering?: string;
+  floor_id?: string | number;
+  room_id?: string | number;
+  faculty_id?: string | number;
+  major_id?: string | number;
+  role?: string;
+  year?: string | number;
 }
