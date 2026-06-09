@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { User } from '../types/auth';
 import UserAvatar from './UserAvatar';
 
@@ -34,8 +35,8 @@ export default function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
         aria-haspopup="menu"
         aria-expanded={open}
         className={
-          'flex items-center gap-2 rounded-md border border-gray-200 ' +
-          'bg-white px-2 py-1 pr-3 transition hover:bg-gray-50'
+          'flex items-center rounded-md border border-gray-200 ' +
+          'bg-white p-1 transition hover:bg-gray-50'
         }
       >
         <UserAvatar
@@ -45,9 +46,6 @@ export default function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
           size={32}
           rounded="md"
         />
-        <span className="text-sm font-medium text-gray-800">
-          {user.full_name ?? user.email}
-        </span>
       </button>
       {open && (
         <div
@@ -58,6 +56,15 @@ export default function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
             'border border-gray-200 bg-white shadow-lg'
           }
         >
+          <Link
+            id="profile-menu-profile"
+            role="menuitem"
+            to="/profile/me"
+            onClick={() => setOpen(false)}
+            className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+          >
+            Мій профіль
+          </Link>
           <button
             id="profile-menu-logout"
             type="button"

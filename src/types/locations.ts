@@ -3,6 +3,12 @@ export interface FloorListItem {
   number: number;
 }
 
+export interface RoomListItem {
+  id: number;
+  name: string;
+  floor: number;
+}
+
 export interface UserOnMap {
   id: string;
   display_name: string;
