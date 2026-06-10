@@ -1,6 +1,7 @@
 import type { UserOnMap } from './locations';
 
 export type EducationLevel = 'BACHELOR' | 'MASTER' | 'PHD';
+export type Position = 'STUDENT' | 'TEACHER' | 'EMPLOYEE';
 
 export interface UserProfile {
   id: string;
@@ -12,12 +13,14 @@ export interface UserProfile {
   room_id: number | null;
   floor_id: number | null;
   major_id: number | null;
+  faculty_id?: number | null;
   dormitory_name: string | null;
   floor_number: string | null;
   room_name: string | null;
   faculty_name: string | null;
   major_name: string | null;
-  education_level: EducationLevel;
+  position: Position;
+  education_level: EducationLevel | null;
   year: number | string | null;
   status: string | null;
   bio: string | null;
@@ -55,7 +58,9 @@ export interface UserProfileUpdatePayload {
   role?: number | null;
   room?: number | null;
   major?: number | null;
-  education_level?: EducationLevel;
+  faculty?: number | null;
+  position?: Position;
+  education_level?: EducationLevel | null;
   year?: number | null;
   photo?: File;
   status?: string;

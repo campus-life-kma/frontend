@@ -94,15 +94,25 @@ function formatRole(role: string | null): string {
   return role ? (labels[role] ?? role) : 'Мешканець';
 }
 
+function formatPosition(position: string): string {
+  const labels: Record<string, string> = {
+    STUDENT: 'Студент',
+    TEACHER: 'Викладач',
+    EMPLOYEE: 'Працівник',
+  };
+  return labels[position] ?? 'Студент';
+}
+
 function formatEducationLevel(
   level: EducationLevel | null | undefined
 ): string {
+  if (!level) return '';
   const labels: Record<EducationLevel, string> = {
     BACHELOR: 'Бакалавр',
     MASTER: 'Магістр',
     PHD: 'Аспірант',
   };
-  return level ? labels[level] : 'Рівень не вказано';
+  return labels[level] ?? '';
 }
 
 function formatStudyYear(
@@ -148,6 +158,14 @@ function locationLine(profile: UserProfile): string {
 }
 
 function studyLine(profile: UserProfile): string {
+  if (profile.position === 'EMPLOYEE') {
+    return 'Працівник університету';
+  }
+  if (profile.position === 'TEACHER') {
+    const parts = [profile.faculty_name, 'Викладач'].filter(hasValue);
+    return parts.length > 0 ? parts.join(' • ') : 'Викладач';
+  }
+
   const parts = [
     profile.faculty_name,
     profile.major_name,
@@ -780,82 +798,105 @@ function ProfileHeader({
                 </option>
               ))}
             </EditableInfoLine>
-            <InfoLine
-              label="Факультет"
-              value={profile.faculty_name ?? 'Не вказано'}
-            />
             <EditableInfoLine
-              label="Спеціальність"
-              value={profile.major_name ?? 'Не вказано'}
-              editValue={profile.major_id ? String(profile.major_id) : ''}
+              label="Позиція у ВНЗ"
+              value={formatPosition(profile.position)}
+              editValue={profile.position}
               canEdit={canEditAdminField}
               saving={saving}
-              onSave={(value) =>
-                onSave({ major: value ? Number(value) : null })
-              }
+              onSave={(value) => onSave({ position: value as Position })}
             >
-              <option value="">Без спеціальності</option>
-              {majors.map((major) => (
-                <option key={major.id} value={major.id}>
-                  {major.name}
-                </option>
-              ))}
+              <option value="STUDENT">Студент</option>
+              <option value="TEACHER">Викладач</option>
+              <option value="EMPLOYEE">Працівник</option>
             </EditableInfoLine>
-            <EditableInfoLine
-              label="Рівень навчання"
-              value={formatEducationLevel(profile.education_level)}
-              editValue={profile.education_level}
-              canEdit={canEditAdminField}
-              saving={saving}
-              onSave={(value) => {
-                const educationLevel = value as EducationLevel;
-                const currentYear = profile.year ? Number(profile.year) : null;
-                return onSave({
-                  education_level: educationLevel,
-                  year:
-                    educationLevel === 'MASTER' &&
-                    currentYear !== null &&
-                    currentYear > 2
-                      ? 2
-                      : currentYear,
-                });
-              }}
-            >
-              <option value="BACHELOR">Бакалавр</option>
-              <option value="MASTER">Магістр</option>
-              <option value="PHD">Аспірант</option>
-            </EditableInfoLine>
-            <EditableInfoLine
-              label={
-                profile.education_level === 'PHD' ? 'Рік навчання' : 'Курс'
-              }
-              value={
-                formatStudyYear(profile.education_level, profile.year) ??
-                'Не вказано'
-              }
-              editValue={profile.year ? String(profile.year) : ''}
-              canEdit={canEditAdminField}
-              saving={saving}
-              onSave={(value) => onSave({ year: value ? Number(value) : null })}
-            >
-              <option value="">Не вказано</option>
-              <option value="1">
-                {profile.education_level === 'PHD' ? '1 рік' : '1 курс'}
-              </option>
-              <option value="2">
-                {profile.education_level === 'PHD' ? '2 рік' : '2 курс'}
-              </option>
-              {profile.education_level !== 'MASTER' && (
-                <>
-                  <option value="3">
-                    {profile.education_level === 'PHD' ? '3 рік' : '3 курс'}
+
+            {profile.position !== 'EMPLOYEE' && (
+              <div className="rounded-md bg-gray-50 px-3 py-2">
+                <p className="text-xs font-medium tracking-wide text-gray-400 uppercase">
+                  Факультет
+                </p>
+                <p className="mt-1 font-medium break-words text-gray-800">
+                  {profile.faculty_name ?? 'Не вказано'}
+                </p>
+              </div>
+            )}
+            {profile.position === 'STUDENT' && (
+              <>
+                <EditableInfoLine
+                  label="Спеціальність"
+                  value={profile.major_name ?? 'Не вказано'}
+                  editValue={profile.major_id ? String(profile.major_id) : ''}
+                  canEdit={canEditAdminField}
+                  saving={saving}
+                  onSave={(value) =>
+                    onSave({ major: value ? Number(value) : null })
+                  }
+                >
+                  <option value="">Без спеціальності</option>
+                  {majors.map((major) => (
+                    <option key={major.id} value={major.id}>
+                      {major.name}
+                    </option>
+                  ))}
+                </EditableInfoLine>
+                <EditableInfoLine
+                  label="Рівень навчання"
+                  value={formatEducationLevel(profile.education_level)}
+                  editValue={profile.education_level ?? ''}
+                  canEdit={canEditAdminField}
+                  saving={saving}
+                  onSave={(value) => {
+                    const educationLevel = value as EducationLevel;
+                    const currentYear = profile.year ? Number(profile.year) : null;
+                    return onSave({
+                      education_level: educationLevel,
+                      year:
+                        educationLevel === 'MASTER' &&
+                        currentYear !== null &&
+                        currentYear > 2
+                          ? 2
+                          : currentYear,
+                    });
+                  }}
+                >
+                  <option value="BACHELOR">Бакалавр</option>
+                  <option value="MASTER">Магістр</option>
+                  <option value="PHD">Аспірант</option>
+                </EditableInfoLine>
+                <EditableInfoLine
+                  label={
+                    profile.education_level === 'PHD' ? 'Рік навчання' : 'Курс'
+                  }
+                  value={
+                    formatStudyYear(profile.education_level, profile.year) ??
+                    'Не вказано'
+                  }
+                  editValue={profile.year ? String(profile.year) : ''}
+                  canEdit={canEditAdminField}
+                  saving={saving}
+                  onSave={(value) => onSave({ year: value ? Number(value) : null })}
+                >
+                  <option value="">Не вказано</option>
+                  <option value="1">
+                    {profile.education_level === 'PHD' ? '1 рік' : '1 курс'}
                   </option>
-                  <option value="4">
-                    {profile.education_level === 'PHD' ? '4 рік' : '4 курс'}
+                  <option value="2">
+                    {profile.education_level === 'PHD' ? '2 рік' : '2 курс'}
                   </option>
-                </>
-              )}
-            </EditableInfoLine>
+                  {profile.education_level !== 'MASTER' && (
+                    <>
+                      <option value="3">
+                        {profile.education_level === 'PHD' ? '3 рік' : '3 курс'}
+                      </option>
+                      <option value="4">
+                        {profile.education_level === 'PHD' ? '4 рік' : '4 курс'}
+                      </option>
+                    </>
+                  )}
+                </EditableInfoLine>
+              </>
+            )}
           </div>
         </div>
       </div>
