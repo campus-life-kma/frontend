@@ -7,6 +7,11 @@ export interface RoomListItem {
   id: number;
   name: string;
   floor: number;
+  floor_number?: number;
+  room_type?: string;
+  max_person?: number;
+  is_blocked?: boolean;
+  current_residents_count?: number;
 }
 
 export interface UserOnMap {

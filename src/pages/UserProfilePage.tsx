@@ -8,6 +8,8 @@ import {
   useSearchParams,
 } from 'react-router-dom';
 import { cancelBooking, getMyBookings } from '../api/bookings';
+import { getMajors, getRoles } from '../api/dictionaries';
+import { getRooms } from '../api/locations';
 import {
   deleteEvent,
   deleteSharingRequest,
@@ -26,12 +28,15 @@ import UserAvatar from '../components/UserAvatar';
 import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 import type { Booking } from '../types/bookings';
+import type { MajorListItem, RoleListItem } from '../types/dictionaries';
+import type { RoomListItem } from '../types/locations';
 import type {
   FeedItem,
   SocialEvent,
   SocialSharingRequest,
 } from '../types/social';
 import type {
+  EducationLevel,
   UserProfile,
   UserProfileEvent,
   UserProfileSharingRequest,
@@ -88,6 +93,35 @@ function formatRole(role: string | null): string {
   return role ? (labels[role] ?? role) : 'Мешканець';
 }
 
+function formatEducationLevel(
+  level: EducationLevel | null | undefined
+): string {
+  const labels: Record<EducationLevel, string> = {
+    BACHELOR: 'Бакалавр',
+    MASTER: 'Магістр',
+    PHD: 'Аспірант',
+  };
+  return level ? labels[level] : 'Рівень не вказано';
+}
+
+function formatStudyYear(
+  educationLevel: EducationLevel | null | undefined,
+  year: string | number | null | undefined
+): string | null {
+  if (!hasValue(year)) return null;
+  const numericYear = Number(year);
+  if (educationLevel === 'PHD') {
+    return `${numericYear} ${formatYearWord(numericYear)}`;
+  }
+  return `${numericYear} курс`;
+}
+
+function formatYearWord(year: number): string {
+  if (year === 1) return 'рік';
+  if (year >= 2 && year <= 4) return 'рік';
+  return 'рік';
+}
+
 function formatSocialStatus(status: string): string {
   const labels: Record<string, string> = {
     ACTIVE: 'Активний',
@@ -116,7 +150,8 @@ function studyLine(profile: UserProfile): string {
   const parts = [
     profile.faculty_name,
     profile.major_name,
-    profile.year ? `${profile.year} курс` : null,
+    formatEducationLevel(profile.education_level),
+    formatStudyYear(profile.education_level, profile.year),
   ].filter(hasValue);
 
   return parts.length > 0 ? parts.join(' / ') : 'Навчальні дані не вказані';
@@ -138,6 +173,15 @@ function normalizeError(error: unknown): string {
     const data = error.response.data;
     if (typeof data === 'object' && data !== null && 'detail' in data) {
       return String(data.detail);
+    }
+    if (typeof data === 'object' && data !== null) {
+      const firstValue = Object.values(data)[0];
+      if (Array.isArray(firstValue)) {
+        return String(firstValue[0]);
+      }
+      if (typeof firstValue === 'string') {
+        return firstValue;
+      }
     }
   }
   return 'Не вдалося виконати дію.';
@@ -173,6 +217,7 @@ export default function UserProfilePage() {
     (isPrivateMode ||
       currentUser?.id === targetUserId ||
       currentUser?.role === 'ADMIN');
+  const isAdmin = currentUser?.role === 'ADMIN';
 
   const selectedEventId = Number(searchParams.get('eventId'));
   const selectedSharingId = Number(searchParams.get('sharingId'));
@@ -193,6 +238,24 @@ export default function UserProfilePage() {
     queryKey: ['bookings-me'],
     queryFn: getMyBookings,
     enabled: isPrivateMode && !!targetUserId,
+  });
+
+  const rolesQuery = useQuery({
+    queryKey: ['roles'],
+    queryFn: getRoles,
+    enabled: isAdmin && !!targetUserId,
+  });
+
+  const majorsQuery = useQuery({
+    queryKey: ['majors'],
+    queryFn: getMajors,
+    enabled: isAdmin && !!targetUserId,
+  });
+
+  const roomsQuery = useQuery({
+    queryKey: ['rooms'],
+    queryFn: getRooms,
+    enabled: isAdmin && !!targetUserId,
   });
 
   const eventDetailQuery = useQuery({
@@ -371,7 +434,16 @@ export default function UserProfilePage() {
             <ProfileHeader
               profile={profile}
               isPrivateMode={isPrivateMode}
+              isAdmin={isAdmin}
               canEdit={canEditProfile}
+              roles={rolesQuery.data ?? []}
+              majors={majorsQuery.data ?? []}
+              rooms={roomsQuery.data ?? []}
+              dictionariesLoading={
+                rolesQuery.isLoading ||
+                majorsQuery.isLoading ||
+                roomsQuery.isLoading
+              }
               saving={updateProfileMutation.isPending}
               onSave={(payload) => updateProfileMutation.mutateAsync(payload)}
             />
@@ -451,18 +523,40 @@ function ProfileShell({ title }: { title: string }) {
 function ProfileHeader({
   profile,
   isPrivateMode,
+  isAdmin,
   canEdit,
+  roles,
+  majors,
+  rooms,
+  dictionariesLoading,
   saving,
   onSave,
 }: {
   profile: UserProfile;
   isPrivateMode: boolean;
+  isAdmin: boolean;
   canEdit: boolean;
+  roles: RoleListItem[];
+  majors: MajorListItem[];
+  rooms: RoomListItem[];
+  dictionariesLoading: boolean;
   saving: boolean;
   onSave: (payload: UserProfileUpdatePayload) => Promise<UserProfile>;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(profile.display_name);
+  const sortedRooms = useMemo(
+    () =>
+      [...rooms].sort((a, b) => {
+        const floorDiff =
+          (a.floor_number ?? a.floor) - (b.floor_number ?? b.floor);
+        if (floorDiff !== 0) return floorDiff;
+        return a.name.localeCompare(b.name, 'uk');
+      }),
+    [rooms]
+  );
+
+  const canEditAdminField = isAdmin && !dictionariesLoading;
 
   async function saveName() {
     const nextName = nameDraft.trim();
@@ -574,7 +668,15 @@ function ProfileHeader({
                 </span>
               )}
             </div>
-            <p className="mt-1 text-sm text-gray-500">{profile.email}</p>
+            <InlineEditableText
+              value={profile.email}
+              placeholder="Пошту не вказано"
+              canEdit={isAdmin}
+              saving={saving}
+              className="mt-1 text-sm text-gray-500"
+              inputType="email"
+              onSave={(value) => onSave({ email: value })}
+            />
             <p className="mt-2 text-sm font-medium text-gray-700">
               {studyLine(profile)}
             </p>
@@ -582,21 +684,118 @@ function ProfileHeader({
               {locationLine(profile)}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Badge>{formatRole(profile.role_name)}</Badge>
+              <EditableBadgeSelect
+                value={formatRole(profile.role_name)}
+                editValue={profile.role_id ? String(profile.role_id) : ''}
+                canEdit={canEditAdminField}
+                saving={saving}
+                onSave={(value) =>
+                  onSave({ role: value ? Number(value) : null })
+                }
+              >
+                <option value="">Без ролі</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {formatRole(role.name)}
+                  </option>
+                ))}
+              </EditableBadgeSelect>
             </div>
           </div>
         </div>
 
         <div className="grid gap-2 text-sm md:min-w-72">
-          <InfoLine label="Кімната" value={profile.room_name ?? 'Не вказано'} />
+          <EditableInfoLine
+            label="Кімната"
+            value={profile.room_name ?? 'Не вказано'}
+            editValue={profile.room_id ? String(profile.room_id) : ''}
+            canEdit={canEditAdminField}
+            saving={saving}
+            onSave={(value) => onSave({ room: value ? Number(value) : null })}
+          >
+            <option value="">Без кімнати</option>
+            {sortedRooms.map((room) => (
+              <option
+                key={room.id}
+                value={room.id}
+                disabled={roomDisabled(room, profile.room_id)}
+              >
+                {roomLabel(room)}
+              </option>
+            ))}
+          </EditableInfoLine>
           <InfoLine
             label="Факультет"
             value={profile.faculty_name ?? 'Не вказано'}
           />
-          <InfoLine
+          <EditableInfoLine
             label="Спеціальність"
             value={profile.major_name ?? 'Не вказано'}
-          />
+            editValue={profile.major_id ? String(profile.major_id) : ''}
+            canEdit={canEditAdminField}
+            saving={saving}
+            onSave={(value) => onSave({ major: value ? Number(value) : null })}
+          >
+            <option value="">Без спеціальності</option>
+            {majors.map((major) => (
+              <option key={major.id} value={major.id}>
+                {major.name}
+              </option>
+            ))}
+          </EditableInfoLine>
+          <EditableInfoLine
+            label="Рівень навчання"
+            value={formatEducationLevel(profile.education_level)}
+            editValue={profile.education_level}
+            canEdit={canEditAdminField}
+            saving={saving}
+            onSave={(value) => {
+              const educationLevel = value as EducationLevel;
+              const currentYear = profile.year ? Number(profile.year) : null;
+              return onSave({
+                education_level: educationLevel,
+                year:
+                  educationLevel === 'MASTER' &&
+                  currentYear !== null &&
+                  currentYear > 2
+                    ? 2
+                    : currentYear,
+              });
+            }}
+          >
+            <option value="BACHELOR">Бакалавр</option>
+            <option value="MASTER">Магістр</option>
+            <option value="PHD">Аспірант</option>
+          </EditableInfoLine>
+          <EditableInfoLine
+            label={profile.education_level === 'PHD' ? 'Рік навчання' : 'Курс'}
+            value={
+              formatStudyYear(profile.education_level, profile.year) ??
+              'Не вказано'
+            }
+            editValue={profile.year ? String(profile.year) : ''}
+            canEdit={canEditAdminField}
+            saving={saving}
+            onSave={(value) => onSave({ year: value ? Number(value) : null })}
+          >
+            <option value="">Не вказано</option>
+            <option value="1">
+              {profile.education_level === 'PHD' ? '1 рік' : '1 курс'}
+            </option>
+            <option value="2">
+              {profile.education_level === 'PHD' ? '2 рік' : '2 курс'}
+            </option>
+            {profile.education_level !== 'MASTER' && (
+              <>
+                <option value="3">
+                  {profile.education_level === 'PHD' ? '3 рік' : '3 курс'}
+                </option>
+                <option value="4">
+                  {profile.education_level === 'PHD' ? '4 рік' : '4 курс'}
+                </option>
+              </>
+            )}
+          </EditableInfoLine>
         </div>
       </div>
 
@@ -725,6 +924,294 @@ function EditableProfileField({
       )}
     </section>
   );
+}
+
+function InlineEditableText({
+  value,
+  placeholder,
+  canEdit,
+  saving,
+  className,
+  inputType = 'text',
+  onSave,
+}: {
+  value: string | null;
+  placeholder: string;
+  canEdit: boolean;
+  saving: boolean;
+  className: string;
+  inputType?: string;
+  onSave: (value: string) => Promise<unknown>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? '');
+
+  async function save() {
+    const nextValue = draft.trim();
+    if (!nextValue) return;
+    await onSave(nextValue);
+    setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex min-w-0 items-center gap-1">
+        <p className={`${className} min-w-0 truncate`}>
+          {value || placeholder}
+        </p>
+        {canEdit && (
+          <EditIconButton
+            label="Редагувати поле"
+            onClick={() => {
+              setDraft(value ?? '');
+              setEditing(true);
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+      <input
+        type={inputType}
+        value={draft}
+        disabled={saving}
+        onChange={(event) => setDraft(event.target.value)}
+        className={
+          'min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm ' +
+          'outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+        }
+      />
+      <InlineSaveCancel
+        saving={saving}
+        disabled={!draft.trim()}
+        onSave={() => void save()}
+        onCancel={() => setEditing(false)}
+      />
+    </div>
+  );
+}
+
+function EditableBadgeSelect({
+  value,
+  editValue,
+  canEdit,
+  saving,
+  children,
+  onSave,
+}: {
+  value: string;
+  editValue: string;
+  canEdit: boolean;
+  saving: boolean;
+  children: ReactNode;
+  onSave: (value: string) => Promise<unknown>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(editValue);
+
+  async function save() {
+    await onSave(draft);
+    setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <span className="flex items-center gap-1">
+        <Badge>{value}</Badge>
+        {canEdit && (
+          <EditIconButton
+            label="Редагувати роль"
+            onClick={() => {
+              setDraft(editValue);
+              setEditing(true);
+            }}
+          />
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <select
+        value={draft}
+        disabled={saving}
+        onChange={(event) => setDraft(event.target.value)}
+        className={
+          'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm ' +
+          'outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+        }
+      >
+        {children}
+      </select>
+      <InlineSaveCancel
+        saving={saving}
+        onSave={() => void save()}
+        onCancel={() => setEditing(false)}
+      />
+    </span>
+  );
+}
+
+function EditableInfoLine({
+  label,
+  value,
+  editValue,
+  canEdit,
+  saving,
+  children,
+  onSave,
+}: {
+  label: string;
+  value: string;
+  editValue: string;
+  canEdit: boolean;
+  saving: boolean;
+  children: ReactNode;
+  onSave: (value: string) => Promise<unknown>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(editValue);
+
+  async function save() {
+    await onSave(draft);
+    setEditing(false);
+  }
+
+  return (
+    <div className="rounded-md bg-gray-50 px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium tracking-wide text-gray-400 uppercase">
+          {label}
+        </p>
+        {canEdit && !editing && (
+          <EditIconButton
+            label={`Редагувати ${label.toLowerCase()}`}
+            onClick={() => {
+              setDraft(editValue);
+              setEditing(true);
+            }}
+          />
+        )}
+      </div>
+
+      {!editing ? (
+        <p className="mt-1 font-medium break-words text-gray-800">{value}</p>
+      ) : (
+        <div className="mt-2 space-y-2">
+          <select
+            value={draft}
+            disabled={saving}
+            onChange={(event) => setDraft(event.target.value)}
+            className={
+              'w-full rounded-md border border-gray-300 bg-white px-3 py-2 ' +
+              'text-sm outline-none focus:border-blue-500 focus:ring-1 ' +
+              'focus:ring-blue-500 disabled:bg-gray-50'
+            }
+          >
+            {children}
+          </select>
+          <InlineSaveCancel
+            saving={saving}
+            onSave={() => void save()}
+            onCancel={() => setEditing(false)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditIconButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded p-1 text-gray-400 hover:bg-white hover:text-blue-700"
+      aria-label={label}
+      title={label}
+    >
+      ✎
+    </button>
+  );
+}
+
+function InlineSaveCancel({
+  saving,
+  disabled = false,
+  onSave,
+  onCancel,
+}: {
+  saving: boolean;
+  disabled?: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex justify-end gap-2">
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={saving}
+        className={
+          'rounded-md border border-gray-200 px-2.5 py-1.5 text-xs ' +
+          'font-medium text-gray-700 hover:bg-white disabled:opacity-60'
+        }
+      >
+        Скасувати
+      </button>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={saving || disabled}
+        className={
+          'rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-semibold ' +
+          'text-white hover:bg-blue-700 disabled:bg-gray-300'
+        }
+      >
+        {saving ? 'Зберігаємо…' : 'Зберегти'}
+      </button>
+    </div>
+  );
+}
+
+function roomDisabled(
+  room: RoomListItem,
+  currentRoomId: number | null
+): boolean {
+  const currentRoom = room.id === currentRoomId;
+  const residents = room.current_residents_count ?? 0;
+  const capacity = room.max_person ?? Number.POSITIVE_INFINITY;
+  const nonLivingRoom = room.room_type ? room.room_type !== 'LIVING' : false;
+  return (
+    !currentRoom &&
+    (nonLivingRoom || Boolean(room.is_blocked) || residents >= capacity)
+  );
+}
+
+function roomLabel(room: RoomListItem): string {
+  const floor = room.floor_number ?? room.floor;
+  const residents = room.current_residents_count;
+  const capacity = room.max_person;
+  const occupancy =
+    typeof residents === 'number' && typeof capacity === 'number'
+      ? ` · ${residents}/${capacity}`
+      : '';
+  const state = room.is_blocked
+    ? ' · заблоковано'
+    : room.room_type && room.room_type !== 'LIVING'
+      ? ' · не житлова'
+      : '';
+  return `${floor} поверх · ${room.name}${occupancy}${state}`;
 }
 
 function MyBookingsWidget({
