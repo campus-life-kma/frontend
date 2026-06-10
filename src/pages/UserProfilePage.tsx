@@ -22,9 +22,11 @@ import {
   getUserProfile,
   getUserSocialActivity,
   updateUserProfile,
+  evictUser,
 } from '../api/users';
 import ProfileMenu from '../components/ProfileMenu';
 import UserAvatar from '../components/UserAvatar';
+import ConfirmDialog from '../components/UI/ConfirmDialog';
 import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 import type { Booking } from '../types/bookings';
@@ -217,6 +219,7 @@ export default function UserProfilePage() {
   const updateCurrentUser = useAuthStore((state) => state.updateUser);
   const [activeTab, setActiveTab] = useState<ActivityTab>('hosted');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [evictionDialogOpen, setEvictionDialogOpen] = useState(false);
 
   const isPrivateMode = !userId || userId === 'me';
   const targetUserId = isPrivateMode ? currentUser?.id : userId;
@@ -347,6 +350,17 @@ export default function UserProfilePage() {
     onError: (error) => setActionError(normalizeError(error)),
   });
 
+  const evictUserMutation = useMutation({
+    mutationFn: evictUser,
+    onSuccess: async () => {
+      setEvictionDialogOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      navigate('/');
+    },
+    onError: (error) => setActionError(normalizeError(error)),
+  });
+
   const profile = profileQuery.data;
   const canModerateTargetProfile = Boolean(
     profile &&
@@ -357,6 +371,9 @@ export default function UserProfilePage() {
     currentUser.floor_id === String(profile.floor_id)
   );
   const canEditStatusBio = canEditIdentity || canModerateTargetProfile;
+  const canEvictProfile = Boolean(
+    profile && isAdmin && currentUser?.id !== profile.id
+  );
 
   const activeBookings = useMemo(
     () =>
@@ -463,6 +480,9 @@ export default function UserProfilePage() {
                 roomsQuery.isLoading
               }
               saving={updateProfileMutation.isPending}
+              canEvict={canEvictProfile}
+              evicting={evictUserMutation.isPending}
+              onRequestEvict={() => setEvictionDialogOpen(true)}
               onSave={(payload) => updateProfileMutation.mutateAsync(payload)}
             />
 
@@ -525,6 +545,23 @@ export default function UserProfilePage() {
           }
         />
       )}
+
+      {evictionDialogOpen && profile && (
+        <ConfirmDialog
+          title="Виселити користувача?"
+          description={
+            `Профіль «${profile.display_name}» буде видалено з бази ` +
+            'мешканців Campus Life. Перед видаленням користувач отримає ' +
+            'email-сповіщення, а якщо лист не вдасться надіслати, ' +
+            'виселення буде скасовано.'
+          }
+          confirmLabel="Виселити"
+          variant="danger"
+          isPending={evictUserMutation.isPending}
+          onClose={() => setEvictionDialogOpen(false)}
+          onConfirm={() => evictUserMutation.mutate(profile.id)}
+        />
+      )}
     </div>
   );
 }
@@ -550,6 +587,9 @@ function ProfileHeader({
   rooms,
   dictionariesLoading,
   saving,
+  canEvict,
+  evicting,
+  onRequestEvict,
   onSave,
 }: {
   profile: UserProfile;
@@ -562,6 +602,9 @@ function ProfileHeader({
   rooms: RoomListItem[];
   dictionariesLoading: boolean;
   saving: boolean;
+  canEvict: boolean;
+  evicting: boolean;
+  onRequestEvict: () => void;
   onSave: (payload: UserProfileUpdatePayload) => Promise<UserProfile>;
 }) {
   const [editingName, setEditingName] = useState(false);
@@ -725,98 +768,118 @@ function ProfileHeader({
           </div>
         </div>
 
-        <div className="grid gap-2 text-sm md:min-w-72">
-          <EditableInfoLine
-            label="Кімната"
-            value={profile.room_name ?? 'Не вказано'}
-            editValue={profile.room_id ? String(profile.room_id) : ''}
-            canEdit={canEditAdminField}
-            saving={saving}
-            onSave={(value) => onSave({ room: value ? Number(value) : null })}
-          >
-            <option value="">Без кімнати</option>
-            {sortedRooms.map((room) => (
-              <option
-                key={room.id}
-                value={room.id}
-                disabled={roomDisabled(room, profile.room_id)}
-              >
-                {roomLabel(room)}
-              </option>
-            ))}
-          </EditableInfoLine>
-          <InfoLine
-            label="Факультет"
-            value={profile.faculty_name ?? 'Не вказано'}
-          />
-          <EditableInfoLine
-            label="Спеціальність"
-            value={profile.major_name ?? 'Не вказано'}
-            editValue={profile.major_id ? String(profile.major_id) : ''}
-            canEdit={canEditAdminField}
-            saving={saving}
-            onSave={(value) => onSave({ major: value ? Number(value) : null })}
-          >
-            <option value="">Без спеціальності</option>
-            {majors.map((major) => (
-              <option key={major.id} value={major.id}>
-                {major.name}
-              </option>
-            ))}
-          </EditableInfoLine>
-          <EditableInfoLine
-            label="Рівень навчання"
-            value={formatEducationLevel(profile.education_level)}
-            editValue={profile.education_level}
-            canEdit={canEditAdminField}
-            saving={saving}
-            onSave={(value) => {
-              const educationLevel = value as EducationLevel;
-              const currentYear = profile.year ? Number(profile.year) : null;
-              return onSave({
-                education_level: educationLevel,
-                year:
-                  educationLevel === 'MASTER' &&
-                  currentYear !== null &&
-                  currentYear > 2
-                    ? 2
-                    : currentYear,
-              });
-            }}
-          >
-            <option value="BACHELOR">Бакалавр</option>
-            <option value="MASTER">Магістр</option>
-            <option value="PHD">Аспірант</option>
-          </EditableInfoLine>
-          <EditableInfoLine
-            label={profile.education_level === 'PHD' ? 'Рік навчання' : 'Курс'}
-            value={
-              formatStudyYear(profile.education_level, profile.year) ??
-              'Не вказано'
-            }
-            editValue={profile.year ? String(profile.year) : ''}
-            canEdit={canEditAdminField}
-            saving={saving}
-            onSave={(value) => onSave({ year: value ? Number(value) : null })}
-          >
-            <option value="">Не вказано</option>
-            <option value="1">
-              {profile.education_level === 'PHD' ? '1 рік' : '1 курс'}
-            </option>
-            <option value="2">
-              {profile.education_level === 'PHD' ? '2 рік' : '2 курс'}
-            </option>
-            {profile.education_level !== 'MASTER' && (
-              <>
-                <option value="3">
-                  {profile.education_level === 'PHD' ? '3 рік' : '3 курс'}
+        <div className="flex flex-col gap-3 md:min-w-72">
+          {canEvict && (
+            <button
+              type="button"
+              onClick={onRequestEvict}
+              disabled={evicting}
+              className={
+                'self-start rounded-md border border-red-200 bg-red-50 ' +
+                'px-3 py-2 text-sm font-semibold text-red-700 ' +
+                'hover:bg-red-100 disabled:opacity-60 md:self-end'
+              }
+            >
+              {evicting ? 'Виселяємо…' : 'Виселити'}
+            </button>
+          )}
+          <div className="grid gap-2 text-sm">
+            <EditableInfoLine
+              label="Кімната"
+              value={profile.room_name ?? 'Не вказано'}
+              editValue={profile.room_id ? String(profile.room_id) : ''}
+              canEdit={canEditAdminField}
+              saving={saving}
+              onSave={(value) => onSave({ room: value ? Number(value) : null })}
+            >
+              <option value="">Без кімнати</option>
+              {sortedRooms.map((room) => (
+                <option
+                  key={room.id}
+                  value={room.id}
+                  disabled={roomDisabled(room, profile.room_id)}
+                >
+                  {roomLabel(room)}
                 </option>
-                <option value="4">
-                  {profile.education_level === 'PHD' ? '4 рік' : '4 курс'}
+              ))}
+            </EditableInfoLine>
+            <InfoLine
+              label="Факультет"
+              value={profile.faculty_name ?? 'Не вказано'}
+            />
+            <EditableInfoLine
+              label="Спеціальність"
+              value={profile.major_name ?? 'Не вказано'}
+              editValue={profile.major_id ? String(profile.major_id) : ''}
+              canEdit={canEditAdminField}
+              saving={saving}
+              onSave={(value) =>
+                onSave({ major: value ? Number(value) : null })
+              }
+            >
+              <option value="">Без спеціальності</option>
+              {majors.map((major) => (
+                <option key={major.id} value={major.id}>
+                  {major.name}
                 </option>
-              </>
-            )}
-          </EditableInfoLine>
+              ))}
+            </EditableInfoLine>
+            <EditableInfoLine
+              label="Рівень навчання"
+              value={formatEducationLevel(profile.education_level)}
+              editValue={profile.education_level}
+              canEdit={canEditAdminField}
+              saving={saving}
+              onSave={(value) => {
+                const educationLevel = value as EducationLevel;
+                const currentYear = profile.year ? Number(profile.year) : null;
+                return onSave({
+                  education_level: educationLevel,
+                  year:
+                    educationLevel === 'MASTER' &&
+                    currentYear !== null &&
+                    currentYear > 2
+                      ? 2
+                      : currentYear,
+                });
+              }}
+            >
+              <option value="BACHELOR">Бакалавр</option>
+              <option value="MASTER">Магістр</option>
+              <option value="PHD">Аспірант</option>
+            </EditableInfoLine>
+            <EditableInfoLine
+              label={
+                profile.education_level === 'PHD' ? 'Рік навчання' : 'Курс'
+              }
+              value={
+                formatStudyYear(profile.education_level, profile.year) ??
+                'Не вказано'
+              }
+              editValue={profile.year ? String(profile.year) : ''}
+              canEdit={canEditAdminField}
+              saving={saving}
+              onSave={(value) => onSave({ year: value ? Number(value) : null })}
+            >
+              <option value="">Не вказано</option>
+              <option value="1">
+                {profile.education_level === 'PHD' ? '1 рік' : '1 курс'}
+              </option>
+              <option value="2">
+                {profile.education_level === 'PHD' ? '2 рік' : '2 курс'}
+              </option>
+              {profile.education_level !== 'MASTER' && (
+                <>
+                  <option value="3">
+                    {profile.education_level === 'PHD' ? '3 рік' : '3 курс'}
+                  </option>
+                  <option value="4">
+                    {profile.education_level === 'PHD' ? '4 рік' : '4 курс'}
+                  </option>
+                </>
+              )}
+            </EditableInfoLine>
+          </div>
         </div>
       </div>
 
