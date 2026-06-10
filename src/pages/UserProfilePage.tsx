@@ -190,9 +190,17 @@ function normalizeError(error: unknown): string {
 function canManageItem(
   currentUserId: string | null | undefined,
   currentRole: string | null | undefined,
+  currentFloorId: string | null | undefined,
   item: FeedItem
 ): boolean {
-  return item.creator.id === currentUserId || currentRole === 'ADMIN';
+  if (item.creator.id === currentUserId || currentRole === 'ADMIN') {
+    return true;
+  }
+
+  if (currentRole !== 'MODERATOR') return false;
+  return Boolean(
+    item.floor_id && currentFloorId && String(item.floor_id) === currentFloorId
+  );
 }
 
 function canCancelSocialItem(item: FeedItem): boolean {
@@ -212,7 +220,7 @@ export default function UserProfilePage() {
 
   const isPrivateMode = !userId || userId === 'me';
   const targetUserId = isPrivateMode ? currentUser?.id : userId;
-  const canEditProfile =
+  const canEditIdentity =
     Boolean(targetUserId) &&
     (isPrivateMode ||
       currentUser?.id === targetUserId ||
@@ -340,6 +348,15 @@ export default function UserProfilePage() {
   });
 
   const profile = profileQuery.data;
+  const canModerateTargetProfile = Boolean(
+    profile &&
+    currentUser?.role === 'MODERATOR' &&
+    currentUser.id !== profile.id &&
+    currentUser.floor_id &&
+    profile.floor_id &&
+    currentUser.floor_id === String(profile.floor_id)
+  );
+  const canEditStatusBio = canEditIdentity || canModerateTargetProfile;
 
   const activeBookings = useMemo(
     () =>
@@ -435,7 +452,8 @@ export default function UserProfilePage() {
               profile={profile}
               isPrivateMode={isPrivateMode}
               isAdmin={isAdmin}
-              canEdit={canEditProfile}
+              canEditIdentity={canEditIdentity}
+              canEditStatusBio={canEditStatusBio}
               roles={rolesQuery.data ?? []}
               majors={majorsQuery.data ?? []}
               rooms={roomsQuery.data ?? []}
@@ -496,6 +514,7 @@ export default function UserProfilePage() {
           loading={eventDetailQuery.isLoading || sharingDetailQuery.isLoading}
           currentUserId={currentUser?.id ?? null}
           currentRole={currentUser?.role ?? null}
+          currentFloorId={currentUser?.floor_id ?? null}
           actionError={actionError}
           onClose={closeDetailsModal}
           onJoin={(eventId) => joinMutation.mutate(eventId)}
@@ -524,7 +543,8 @@ function ProfileHeader({
   profile,
   isPrivateMode,
   isAdmin,
-  canEdit,
+  canEditIdentity,
+  canEditStatusBio,
   roles,
   majors,
   rooms,
@@ -535,7 +555,8 @@ function ProfileHeader({
   profile: UserProfile;
   isPrivateMode: boolean;
   isAdmin: boolean;
-  canEdit: boolean;
+  canEditIdentity: boolean;
+  canEditStatusBio: boolean;
   roles: RoleListItem[];
   majors: MajorListItem[];
   rooms: RoomListItem[];
@@ -580,7 +601,7 @@ function ProfileHeader({
               photo={profile.photo}
               size={96}
             />
-            {canEdit && (
+            {canEditIdentity && (
               <label
                 className={
                   'absolute right-0 bottom-0 flex h-8 w-8 cursor-pointer ' +
@@ -648,7 +669,7 @@ function ProfileHeader({
                   {profile.display_name}
                 </h1>
               )}
-              {canEdit && !editingName && (
+              {canEditIdentity && !editingName && (
                 <button
                   type="button"
                   onClick={() => {
@@ -804,7 +825,7 @@ function ProfileHeader({
           label="Статус"
           value={profile.status}
           placeholder="Статус ще не вказано."
-          canEdit={canEdit}
+          canEdit={canEditStatusBio}
           saving={saving}
           onSave={(value) => onSave({ status: value })}
         />
@@ -812,7 +833,7 @@ function ProfileHeader({
           label="Біо"
           value={profile.bio}
           placeholder="Користувач ще не додав опис профілю."
-          canEdit={canEdit}
+          canEdit={canEditStatusBio}
           multiline
           saving={saving}
           onSave={(value) => onSave({ bio: value })}
@@ -1398,6 +1419,7 @@ function ProfileDetailsModal({
   loading,
   currentUserId,
   currentRole,
+  currentFloorId,
   actionError,
   onClose,
   onJoin,
@@ -1410,6 +1432,7 @@ function ProfileDetailsModal({
   loading: boolean;
   currentUserId: string | null;
   currentRole: string | null;
+  currentFloorId: string | null;
   actionError: string | null;
   onClose: () => void;
   onJoin: (eventId: number) => void;
@@ -1423,10 +1446,12 @@ function ProfileDetailsModal({
       (participant) => participant.id === currentUserId
     ) ?? false;
   const canManage = item
-    ? canManageItem(currentUserId, currentRole, item)
+    ? canManageItem(currentUserId, currentRole, currentFloorId, item)
     : false;
   const canCancel = item ? canManage && canCancelSocialItem(item) : false;
-  const canEdit = item ? canManage && canCancelSocialItem(item) : false;
+  const canEdit = item
+    ? item.creator.id === currentUserId && canCancelSocialItem(item)
+    : false;
 
   return (
     <div
