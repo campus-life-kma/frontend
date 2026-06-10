@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import AppHeader from '../components/AppHeader';
 import { getStatisticsSummary } from '../api/statistics';
@@ -34,6 +35,12 @@ function percentage(part: number, total: number): number {
 export default function StatisticsPage() {
   const user = useAuthStore((state) => state.user);
   const canSeeStatistics = user?.role === 'ADMIN' || user?.role === 'MODERATOR';
+  const [searchParams] = useSearchParams();
+  const mapFloorId = searchParams.get('mapFloorId');
+
+  const mapPath = mapFloorId ? `/?floorId=${mapFloorId}` : '/';
+  const feedPath = mapFloorId ? `/feed?mapFloorId=${mapFloorId}` : '/feed';
+  const statisticsPath = mapFloorId ? `/statistics?mapFloorId=${mapFloorId}` : '/statistics';
 
   const statisticsQuery = useQuery({
     queryKey: ['statistics-summary'],
@@ -82,7 +89,12 @@ export default function StatisticsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <AppHeader active="statistics" />
+      <AppHeader
+        active="statistics"
+        mapPath={mapPath}
+        feedPath={feedPath}
+        statisticsPath={statisticsPath}
+      />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6">
         {!canSeeStatistics && (

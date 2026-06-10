@@ -9,12 +9,14 @@ interface AppHeaderProps {
   active?: ActiveNavItem;
   mapPath?: string;
   feedPath?: string;
+  statisticsPath?: string;
 }
 
 export default function AppHeader({
   active = 'none',
   mapPath = '/',
   feedPath = '/feed',
+  statisticsPath = '/statistics',
 }: AppHeaderProps) {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
@@ -26,7 +28,7 @@ export default function AppHeader({
     {
       key: 'statistics',
       label: 'Статистика',
-      to: '/statistics',
+      to: statisticsPath,
       visible: canSeeStatistics,
     },
   ] as const;

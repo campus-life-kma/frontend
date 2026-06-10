@@ -62,10 +62,18 @@ export default function MapPage() {
     ? `/feed?type=events&floor=${effectiveFloorId}&active=true&mapFloorId=${effectiveFloorId}`
     : '/feed?type=events&active=true';
   const mapPath = effectiveFloorId ? `/?floorId=${effectiveFloorId}` : '/';
+  const statisticsPath = effectiveFloorId
+    ? `/statistics?mapFloorId=${effectiveFloorId}`
+    : '/statistics';
 
   return (
     <div id="map-page" className="flex h-screen flex-col bg-gray-50">
-      <AppHeader active="map" mapPath={mapPath} feedPath={feedPath} />
+      <AppHeader
+        active="map"
+        mapPath={mapPath}
+        feedPath={feedPath}
+        statisticsPath={statisticsPath}
+      />
 
       <main id="map-main" className="relative flex flex-1 overflow-hidden">
         {floorsQuery.data && (

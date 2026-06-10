@@ -271,6 +271,9 @@ export default function SocialFeedPage() {
     searchParams.get('mapFloorId') ??
     (floor === 'mine' ? user?.floor_id : floor !== 'all' ? floor : null);
   const mapPath = mapFloorId ? `/?floorId=${mapFloorId}` : '/';
+  const statisticsPath = mapFloorId
+    ? `/statistics?mapFloorId=${mapFloorId}`
+    : '/statistics';
   const acknowledgedTimedStorageKey = user?.id
     ? `campus-life:acknowledged-timed-announcements:${user.id}`
     : null;
@@ -509,7 +512,11 @@ export default function SocialFeedPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <AppHeader active="feed" mapPath={mapPath} />
+      <AppHeader
+        active="feed"
+        mapPath={mapPath}
+        statisticsPath={statisticsPath}
+      />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-6">
         <section className="space-y-3">
