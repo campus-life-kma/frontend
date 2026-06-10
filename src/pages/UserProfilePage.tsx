@@ -24,10 +24,9 @@ import {
   updateUserProfile,
   evictUser,
 } from '../api/users';
-import ProfileMenu from '../components/ProfileMenu';
+import AppHeader from '../components/AppHeader';
 import UserAvatar from '../components/UserAvatar';
 import ConfirmDialog from '../components/UI/ConfirmDialog';
-import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 import type { Booking } from '../types/bookings';
 import type { MajorListItem, RoleListItem } from '../types/dictionaries';
@@ -215,7 +214,6 @@ export default function UserProfilePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
   const updateCurrentUser = useAuthStore((state) => state.updateUser);
   const [activeTab, setActiveTab] = useState<ActivityTab>('hosted');
   const [actionError, setActionError] = useState<string | null>(null);
@@ -428,28 +426,7 @@ export default function UserProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-gray-900">
-            <Link to="/">{APP_TITLE}</Link>
-          </h1>
-          <nav className="flex items-center gap-2 text-sm">
-            <Link
-              className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
-              to="/"
-            >
-              Мапа
-            </Link>
-            <Link
-              className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
-              to="/feed"
-            >
-              Стрічка
-            </Link>
-          </nav>
-        </div>
-        {currentUser && <ProfileMenu user={currentUser} onLogout={logout} />}
-      </header>
+      <AppHeader />
 
       <main className="mx-auto flex max-w-6xl flex-col gap-5 px-6 py-6">
         {profileQuery.isLoading && (

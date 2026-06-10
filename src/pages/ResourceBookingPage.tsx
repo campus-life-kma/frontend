@@ -18,7 +18,7 @@ import {
 import { getFloorMapData, getFloors } from '../api/locations';
 import UserAvatar from '../components/UserAvatar';
 import ResourceTypeIcon from '../components/ResourceTypeIcon';
-import ProfileMenu from '../components/ProfileMenu';
+import AppHeader from '../components/AppHeader';
 import ConfirmDialog from '../components/UI/ConfirmDialog';
 import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
@@ -290,7 +290,6 @@ export default function ResourceBookingPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const dayRefs = useRef<Record<string, HTMLElement | null>>({});
   const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
   const [localBlocked, setLocalBlocked] = useState<boolean | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [pendingCancelBooking, setPendingCancelBooking] =
@@ -543,29 +542,22 @@ export default function ResourceBookingPage() {
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 text-gray-900">
-      <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => navigate(`/?floorId=${context.floorId}`)}
-            className={
-              'rounded-md border border-gray-200 px-3 py-1.5 text-sm ' +
-              'font-medium text-gray-700 transition hover:bg-gray-50'
-            }
-          >
-            Назад
-          </button>
-          <h1 className="text-lg font-semibold text-gray-900">
-            <Link to={`/?floorId=${context.floorId}`}>{APP_TITLE}</Link>
-          </h1>
-        </div>
-        {user && <ProfileMenu user={user} onLogout={logout} />}
-      </header>
+      <AppHeader active="none" mapPath={`/?floorId=${context.floorId}`} />
 
       <main className="flex min-h-0 flex-1 flex-col">
         <section className="border-b border-gray-200 bg-white px-6 py-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 items-start gap-4">
+              <button
+                type="button"
+                onClick={() => navigate(`/?floorId=${context.floorId}`)}
+                className={
+                  'mt-1 rounded-md border border-gray-200 px-3 py-2 text-sm ' +
+                  'font-medium text-gray-700 transition hover:bg-gray-50'
+                }
+              >
+                Назад
+              </button>
               <div
                 className={
                   'mt-1 flex h-12 w-12 shrink-0 items-center justify-center ' +

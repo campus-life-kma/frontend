@@ -4,11 +4,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { getFloorMapData, getFloors } from '../api/locations';
 import type { RoomOnMap } from '../types/locations';
+import AppHeader from '../components/AppHeader';
 import FloorMap from '../components/FloorMap';
 import FloorRail from '../components/FloorRail';
-import ProfileMenu from '../components/ProfileMenu';
 import RoomDetailsDrawer from '../components/RoomDetailsDrawer';
-import { APP_TITLE } from '../constants/app';
 
 function toNumberOrNull(value: string | null | undefined): number | null {
   if (value === null || value === undefined || value === '') return null;
@@ -18,7 +17,6 @@ function toNumberOrNull(value: string | null | undefined): number | null {
 
 export default function MapPage() {
   const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [pickedFloorId, setPickedFloorId] = useState<number | null>(null);
@@ -63,39 +61,11 @@ export default function MapPage() {
   const floorEventsFeedPath = effectiveFloorId
     ? `/feed?type=events&floor=${effectiveFloorId}&active=true&mapFloorId=${effectiveFloorId}`
     : '/feed?type=events&active=true';
+  const mapPath = effectiveFloorId ? `/?floorId=${effectiveFloorId}` : '/';
 
   return (
     <div id="map-page" className="flex h-screen flex-col bg-gray-50">
-      <header
-        id="map-header"
-        className={
-          'flex h-14 items-center justify-between border-b border-gray-200 ' +
-          'bg-white px-6'
-        }
-      >
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-gray-900">
-            <Link to={effectiveFloorId ? `/?floorId=${effectiveFloorId}` : '/'}>
-              {APP_TITLE}
-            </Link>
-          </h1>
-          <nav className="flex items-center gap-1 text-sm">
-            <Link
-              className="rounded-md bg-blue-50 px-3 py-1.5 font-medium text-blue-700"
-              to="/"
-            >
-              Мапа
-            </Link>
-            <Link
-              className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
-              to={feedPath}
-            >
-              Стрічка
-            </Link>
-          </nav>
-        </div>
-        {user && <ProfileMenu user={user} onLogout={logout} />}
-      </header>
+      <AppHeader active="map" mapPath={mapPath} feedPath={feedPath} />
 
       <main id="map-main" className="relative flex flex-1 overflow-hidden">
         {floorsQuery.data && (

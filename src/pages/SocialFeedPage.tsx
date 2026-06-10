@@ -25,9 +25,8 @@ import {
 } from '../api/announcements';
 import { getFloors, getRooms } from '../api/locations';
 import UserAvatar from '../components/UserAvatar';
-import ProfileMenu from '../components/ProfileMenu';
+import AppHeader from '../components/AppHeader';
 import ConfirmDialog from '../components/UI/ConfirmDialog';
-import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 import type {
   Announcement,
@@ -242,7 +241,6 @@ export default function SocialFeedPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
   const [page, setPage] = useState(1);
   const [acknowledgedTimedState, setAcknowledgedTimedState] = useState<{
     key: string | null;
@@ -511,28 +509,7 @@ export default function SocialFeedPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-gray-900">
-            <Link to={mapPath}>{APP_TITLE}</Link>
-          </h1>
-          <nav className="flex items-center gap-2 text-sm">
-            <Link
-              className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
-              to={mapPath}
-            >
-              Мапа
-            </Link>
-            <Link
-              className="rounded-md bg-blue-50 px-3 py-1.5 font-medium text-blue-700"
-              to="/feed"
-            >
-              Стрічка
-            </Link>
-          </nav>
-        </div>
-        {user && <ProfileMenu user={user} onLogout={logout} />}
-      </header>
+      <AppHeader active="feed" mapPath={mapPath} />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-6">
         <section className="space-y-3">

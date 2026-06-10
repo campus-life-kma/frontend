@@ -10,8 +10,7 @@ import {
   updateSharingRequest,
 } from '../api/social';
 import { getFloors, getRooms } from '../api/locations';
-import ProfileMenu from '../components/ProfileMenu';
-import { APP_TITLE } from '../constants/app';
+import AppHeader from '../components/AppHeader';
 import { useAuthStore } from '../store/authStore';
 import type {
   SocialEventPayload,
@@ -83,7 +82,6 @@ export default function SocialCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
   const [type, setType] = useState<CreateType>('event');
   const [error, setError] = useState<string | null>(null);
   const [initializedEditKey, setInitializedEditKey] = useState<string | null>(
@@ -328,28 +326,7 @@ export default function SocialCreatePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-gray-900">
-            <Link to="/">{APP_TITLE}</Link>
-          </h1>
-          <nav className="flex items-center gap-2 text-sm">
-            <Link
-              className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
-              to="/"
-            >
-              Мапа
-            </Link>
-            <Link
-              className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
-              to="/feed"
-            >
-              Стрічка
-            </Link>
-          </nav>
-        </div>
-        {user && <ProfileMenu user={user} onLogout={logout} />}
-      </header>
+      <AppHeader active="feed" />
 
       <main className="mx-auto max-w-3xl px-6 py-8">
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
