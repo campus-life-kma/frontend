@@ -87,8 +87,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       set({ accessToken: data.access });
 
-      // Refresh the persisted profile so newly added fields (e.g. room_id)
-      // and admin-side changes (room, role) are picked up without re-login.
       try {
         const { data: me } = await axios.get<User>(`${apiUrl}/auth/me/`, {
           headers: { Authorization: `Bearer ${data.access}` },
@@ -96,7 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(me));
         set({ user: me });
       } catch {
-        // Keep the persisted user if the profile refresh fails.
+        set({ user: get().user });
       }
 
       set({ isBootstrapped: true });
