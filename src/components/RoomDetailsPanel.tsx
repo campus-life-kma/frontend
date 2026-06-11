@@ -16,6 +16,7 @@ const ROOM_TYPE_LABEL: Record<string, string> = {
   KITCHEN: 'Кухня',
   LAUNDRY: 'Пральня',
   BATHROOM: 'Душова',
+  TOILET: 'Туалет',
   STORAGE: 'Склад',
 };
 

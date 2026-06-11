@@ -98,6 +98,18 @@ export default function MapPage() {
           </Link>
         )}
 
+        {mapQuery.data?.number === 2 && (
+          <div
+            className={
+              'absolute bottom-6 left-1/2 z-10 w-max max-w-sm ' +
+              '-translate-x-1/2 rounded-full border border-amber-200 bg-amber-50 px-5 py-2 ' +
+              'text-center text-sm font-medium text-amber-800 shadow-lg'
+            }
+          >
+            ⚠️ 2-й поверх не належить гуртожитку, це звичайний житловий будинок.
+          </div>
+        )}
+
         <div
           id="map-canvas"
           className="flex flex-1 items-stretch justify-stretch"

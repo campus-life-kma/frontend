@@ -64,3 +64,17 @@ export interface FloorMapData {
   rooms: RoomOnMap[];
   active_floor_events: EventOnMap[];
 }
+
+export interface RoomUpdatePayload {
+  name?: string;
+  room_type?: number;
+  max_person?: number;
+  is_blocked?: boolean;
+}
+
+export interface ResourcePayload {
+  name: string;
+  max_person: number;
+  is_blocked: boolean;
+  resource_type: number;
+}

@@ -1,5 +1,10 @@
 import api from './axios-instance';
-import type { MajorListItem, RoleListItem } from '../types/dictionaries';
+import type {
+  MajorListItem,
+  RoleListItem,
+  RoomTypeListItem,
+  ResourceTypeListItem,
+} from '../types/dictionaries';
 
 export async function getRoles(): Promise<RoleListItem[]> {
   const { data } = await api.get<RoleListItem[]>('/roles/');
@@ -8,5 +13,15 @@ export async function getRoles(): Promise<RoleListItem[]> {
 
 export async function getMajors(): Promise<MajorListItem[]> {
   const { data } = await api.get<MajorListItem[]>('/majors/');
+  return data;
+}
+
+export async function getRoomTypes(): Promise<RoomTypeListItem[]> {
+  const { data } = await api.get<RoomTypeListItem[]>('/room-types/');
+  return data;
+}
+
+export async function getResourceTypes(): Promise<ResourceTypeListItem[]> {
+  const { data } = await api.get<ResourceTypeListItem[]>('/resource-types/');
   return data;
 }

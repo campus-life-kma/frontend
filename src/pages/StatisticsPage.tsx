@@ -40,7 +40,9 @@ export default function StatisticsPage() {
 
   const mapPath = mapFloorId ? `/?floorId=${mapFloorId}` : '/';
   const feedPath = mapFloorId ? `/feed?mapFloorId=${mapFloorId}` : '/feed';
-  const statisticsPath = mapFloorId ? `/statistics?mapFloorId=${mapFloorId}` : '/statistics';
+  const statisticsPath = mapFloorId
+    ? `/statistics?mapFloorId=${mapFloorId}`
+    : '/statistics';
 
   const statisticsQuery = useQuery({
     queryKey: ['statistics-summary'],

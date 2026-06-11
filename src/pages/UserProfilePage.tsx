@@ -848,7 +848,9 @@ function ProfileHeader({
                   saving={saving}
                   onSave={(value) => {
                     const educationLevel = value as EducationLevel;
-                    const currentYear = profile.year ? Number(profile.year) : null;
+                    const currentYear = profile.year
+                      ? Number(profile.year)
+                      : null;
                     return onSave({
                       education_level: educationLevel,
                       year:
@@ -875,7 +877,9 @@ function ProfileHeader({
                   editValue={profile.year ? String(profile.year) : ''}
                   canEdit={canEditAdminField}
                   saving={saving}
-                  onSave={(value) => onSave({ year: value ? Number(value) : null })}
+                  onSave={(value) =>
+                    onSave({ year: value ? Number(value) : null })
+                  }
                 >
                   <option value="">Не вказано</option>
                   <option value="1">
@@ -1702,17 +1706,6 @@ function Badge({ children }: { children: string }) {
     <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
       {children}
     </span>
-  );
-}
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-gray-50 px-3 py-2">
-      <p className="text-xs font-medium tracking-wide text-gray-400 uppercase">
-        {label}
-      </p>
-      <p className="mt-1 font-medium text-gray-800">{value}</p>
-    </div>
   );
 }
 
