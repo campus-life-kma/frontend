@@ -80,6 +80,7 @@ export default function RoomDetailsPanel({
 
   const typeLabel = ROOM_TYPE_LABEL[room.room_type] ?? room.room_type;
   const hasEvents = room.active_events.length > 0;
+  const hasResidents = room.current_users.length > 0;
   const isAdmin = user?.role === 'ADMIN';
 
   const homeRoomId = user?.room_id ? Number(user.room_id) : null;
@@ -286,7 +287,7 @@ export default function RoomDetailsPanel({
               id="room-block"
               type="button"
               onClick={() => blockMutation.mutate(room.id)}
-              disabled={blockBusy}
+              disabled={blockBusy || hasResidents}
               className={
                 'w-full rounded-md border border-red-300 px-4 py-2 ' +
                 'font-medium text-red-700 transition hover:bg-red-50 ' +
