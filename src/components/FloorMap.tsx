@@ -32,8 +32,10 @@ const DISABLED_FILL = '#e9e9e9';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const OVERLAY_CLASS = 'campus-life-overlay';
 const USER_RADIUS = 11;
-const USER_GAP = 4;
-const MAX_USER_CIRCLES = 6;
+const USER_RADIUS_MIN = 7;
+const USER_EDGE_PADDING = 3;
+const USER_STACK_OVERLAP = 8;
+const MAX_USER_CIRCLES = 4;
 const RESOURCE_SIZE = 20;
 const RESOURCE_GAP = 6;
 const ROOM_PAD_X = 6;
@@ -59,6 +61,7 @@ function buildUserNode(
   user: UserOnMap,
   cx: number,
   cy: number,
+  radius: number,
   defs: SVGDefsElement,
   uniqueKey: string
 ): SVGElement {
@@ -79,7 +82,7 @@ function buildUserNode(
     const clipCircle = document.createElementNS(SVG_NS, 'circle');
     clipCircle.setAttribute('cx', String(cx));
     clipCircle.setAttribute('cy', String(cy));
-    clipCircle.setAttribute('r', String(USER_RADIUS));
+    clipCircle.setAttribute('r', String(radius));
     clipPath.appendChild(clipCircle);
     defs.appendChild(clipPath);
 
@@ -90,10 +93,10 @@ function buildUserNode(
       photoUrl
     );
     image.setAttribute('href', photoUrl);
-    image.setAttribute('x', String(cx - USER_RADIUS));
-    image.setAttribute('y', String(cy - USER_RADIUS));
-    image.setAttribute('width', String(USER_RADIUS * 2));
-    image.setAttribute('height', String(USER_RADIUS * 2));
+    image.setAttribute('x', String(cx - radius));
+    image.setAttribute('y', String(cy - radius));
+    image.setAttribute('width', String(radius * 2));
+    image.setAttribute('height', String(radius * 2));
     image.setAttribute('clip-path', `url(#${clipId})`);
     image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
     wrapper.appendChild(image);
@@ -101,16 +104,16 @@ function buildUserNode(
     const circle = document.createElementNS(SVG_NS, 'circle');
     circle.setAttribute('cx', String(cx));
     circle.setAttribute('cy', String(cy));
-    circle.setAttribute('r', String(USER_RADIUS));
+    circle.setAttribute('r', String(radius));
     circle.setAttribute('fill', '#3b82f6');
     wrapper.appendChild(circle);
 
     const letter = document.createElementNS(SVG_NS, 'text');
     letter.textContent = initialOf(user);
     letter.setAttribute('x', String(cx));
-    letter.setAttribute('y', String(cy + 4));
+    letter.setAttribute('y', String(cy + radius * 0.36));
     letter.setAttribute('text-anchor', 'middle');
-    letter.setAttribute('font-size', '11');
+    letter.setAttribute('font-size', String(Math.max(8, radius)));
     letter.setAttribute('font-weight', '600');
     letter.setAttribute('fill', 'white');
     wrapper.appendChild(letter);
@@ -119,7 +122,7 @@ function buildUserNode(
   const border = document.createElementNS(SVG_NS, 'circle');
   border.setAttribute('cx', String(cx));
   border.setAttribute('cy', String(cy));
-  border.setAttribute('r', String(USER_RADIUS));
+  border.setAttribute('r', String(radius));
   border.setAttribute('fill', 'none');
   border.setAttribute('stroke', 'white');
   border.setAttribute('stroke-width', '1.5');
@@ -128,23 +131,29 @@ function buildUserNode(
   return wrapper;
 }
 
-function buildOverflowNode(count: number, cx: number, cy: number): SVGElement {
+function buildOverflowNode(
+  count: number,
+  cx: number,
+  cy: number,
+  radius: number
+): SVGElement {
   const wrapper = document.createElementNS(SVG_NS, 'g');
   const circle = document.createElementNS(SVG_NS, 'circle');
   circle.setAttribute('cx', String(cx));
   circle.setAttribute('cy', String(cy));
-  circle.setAttribute('r', String(USER_RADIUS));
+  circle.setAttribute('r', String(radius));
   circle.setAttribute('fill', '#6b7280');
   circle.setAttribute('stroke', 'white');
   circle.setAttribute('stroke-width', '1.5');
+  circle.setAttribute('opacity', '0.88');
   wrapper.appendChild(circle);
 
   const text = document.createElementNS(SVG_NS, 'text');
   text.textContent = `+${count}`;
   text.setAttribute('x', String(cx));
-  text.setAttribute('y', String(cy + 4));
+  text.setAttribute('y', String(cy + radius * 0.36));
   text.setAttribute('text-anchor', 'middle');
-  text.setAttribute('font-size', '10');
+  text.setAttribute('font-size', String(Math.max(8, radius - 1)));
   text.setAttribute('font-weight', '600');
   text.setAttribute('fill', 'white');
   wrapper.appendChild(text);
@@ -184,32 +193,51 @@ function buildResourceNode(
   icon: ResourceIcon,
   cx: number,
   cy: number
-): SVGElement | null {
-  if (!icon.iconUrl) return null;
-
+): SVGElement {
   const wrapper = document.createElementNS(SVG_NS, 'g');
   wrapper.setAttribute('data-resource-type', icon.key);
-  wrapper.style.pointerEvents = 'auto';
+  wrapper.style.pointerEvents = 'none';
 
   const title = document.createElementNS(SVG_NS, 'title');
   const label = icon.names.join(', ');
   title.textContent = icon.allBlocked ? `${label} (зайнятий)` : label;
   wrapper.appendChild(title);
 
-  const image = document.createElementNS(SVG_NS, 'image');
-  image.setAttributeNS(
-    'http://www.w3.org/1999/xlink',
-    'xlink:href',
-    icon.iconUrl
-  );
-  image.setAttribute('href', icon.iconUrl);
-  image.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
-  image.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
-  image.setAttribute('width', String(RESOURCE_SIZE));
-  image.setAttribute('height', String(RESOURCE_SIZE));
-  image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-  if (icon.allBlocked) image.setAttribute('opacity', '0.4');
-  wrapper.appendChild(image);
+  if (icon.iconUrl) {
+    const image = document.createElementNS(SVG_NS, 'image');
+    image.setAttributeNS(
+      'http://www.w3.org/1999/xlink',
+      'xlink:href',
+      icon.iconUrl
+    );
+    image.setAttribute('href', icon.iconUrl);
+    image.setAttribute('x', String(cx - RESOURCE_SIZE / 2));
+    image.setAttribute('y', String(cy - RESOURCE_SIZE / 2));
+    image.setAttribute('width', String(RESOURCE_SIZE));
+    image.setAttribute('height', String(RESOURCE_SIZE));
+    image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    if (icon.allBlocked) image.setAttribute('opacity', '0.4');
+    wrapper.appendChild(image);
+  } else {
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('cx', String(cx));
+    circle.setAttribute('cy', String(cy));
+    circle.setAttribute('r', String(RESOURCE_SIZE / 2));
+    circle.setAttribute('fill', icon.allBlocked ? '#e5e7eb' : '#f3f4f6');
+    circle.setAttribute('stroke', '#d1d5db');
+    circle.setAttribute('stroke-width', '1');
+    wrapper.appendChild(circle);
+
+    const text = document.createElementNS(SVG_NS, 'text');
+    text.textContent = label.trim()[0]?.toUpperCase() ?? '?';
+    text.setAttribute('x', String(cx));
+    text.setAttribute('y', String(cy + 4));
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-size', '10');
+    text.setAttribute('font-weight', '700');
+    text.setAttribute('fill', '#6b7280');
+    wrapper.appendChild(text);
+  }
 
   return wrapper;
 }
@@ -281,6 +309,31 @@ function findRowSpan(
   }
   if (left === null || right === null) return null;
   return { cx: (left + right) / 2, width: right - left };
+}
+
+function findColumnSpan(
+  el: SVGGeometryElement,
+  x: number,
+  bbox: DOMRect
+): { top: number; bottom: number } | null {
+  if (x < bbox.x || x > bbox.x + bbox.width) return null;
+
+  const step = Math.max(0.75, bbox.height / 160);
+  let top: number | null = null;
+  let bottom: number | null = null;
+  for (let y = bbox.y; y <= bbox.y + bbox.height; y += step) {
+    if (el.isPointInFill({ x, y })) {
+      if (top === null) top = y;
+      bottom = y;
+    }
+  }
+
+  if (top === null || bottom === null) return null;
+  return { top, bottom };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function fitRoomLabel(
@@ -382,47 +435,77 @@ function renderInventoryBand(
   const startX = band.cx - rowWidth / 2 + RESOURCE_SIZE / 2;
   visible.forEach((icon, index) => {
     const rx = startX + index * slotWidth;
-    const node = buildResourceNode(icon, rx, band.y);
-    if (node) overlayGroup.appendChild(node);
+    overlayGroup.appendChild(buildResourceNode(icon, rx, band.y));
   });
 }
 
 function renderPeopleBand(
   room: RoomOnMap,
   band: BandGeometry,
+  el: SVGGeometryElement,
+  bbox: DOMRect,
   defs: SVGDefsElement,
   overlayGroup: SVGGElement
 ) {
   if (room.current_users.length === 0) return;
-  const slotWidth = USER_RADIUS * 2 + USER_GAP;
-  const maxSlots = Math.max(
-    0,
-    Math.floor((band.maxWidth + USER_GAP) / slotWidth)
-  );
-  const cap = Math.min(MAX_USER_CIRCLES, maxSlots);
-  if (cap <= 0) return;
+  for (let radius = USER_RADIUS; radius >= USER_RADIUS_MIN; radius -= 1) {
+    const step = Math.max(radius + 4, radius * 2 - USER_STACK_OVERLAP);
+    const maxSlots =
+      band.maxWidth >= radius * 2
+        ? Math.floor((band.maxWidth - radius * 2) / step) + 1
+        : 0;
+    const cap = Math.min(MAX_USER_CIRCLES, maxSlots);
+    if (cap <= 0) continue;
 
-  const needsOverflow = room.current_users.length > cap;
-  const visibleUsers = room.current_users.slice(
-    0,
-    needsOverflow ? Math.max(0, cap - 1) : cap
-  );
-  const overflow = room.current_users.length - visibleUsers.length;
-  const slotsUsed = visibleUsers.length + (overflow > 0 ? 1 : 0);
-  if (slotsUsed <= 0) return;
+    const needsOverflow = room.current_users.length > cap;
+    const visibleUsers = room.current_users.slice(
+      0,
+      needsOverflow ? Math.max(0, cap - 1) : cap
+    );
+    const overflow = room.current_users.length - visibleUsers.length;
+    const slotsUsed = visibleUsers.length + (overflow > 0 ? 1 : 0);
+    if (slotsUsed <= 0) continue;
 
-  const rowWidth = slotsUsed * slotWidth - USER_GAP;
-  const startX = band.cx - rowWidth / 2 + USER_RADIUS;
+    const rowWidth = radius * 2 + (slotsUsed - 1) * step;
+    const startX = band.cx - rowWidth / 2 + radius;
+    const positions = Array.from(
+      { length: slotsUsed },
+      (_, index) => startX + index * step
+    );
+    const sampleXs = positions.flatMap((x) => [x - radius, x, x + radius]);
+    const spans = sampleXs
+      .map((x) => findColumnSpan(el, x, bbox))
+      .filter((span): span is { top: number; bottom: number } => Boolean(span));
+    if (spans.length !== sampleXs.length) continue;
 
-  visibleUsers.forEach((user, index) => {
-    const ux = startX + index * slotWidth;
-    const node = buildUserNode(user, ux, band.y, defs, `${room.id}-${user.id}`);
-    overlayGroup.appendChild(node);
-  });
+    const top = Math.max(...spans.map((span) => span.top));
+    const bottom = Math.min(...spans.map((span) => span.bottom));
+    if (bottom - top < radius * 2 + USER_EDGE_PADDING * 2) continue;
 
-  if (overflow > 0) {
-    const ox = startX + visibleUsers.length * slotWidth;
-    overlayGroup.appendChild(buildOverflowNode(overflow, ox, band.y));
+    const cy = clamp(
+      band.y,
+      top + radius + USER_EDGE_PADDING,
+      bottom - radius - USER_EDGE_PADDING
+    );
+
+    visibleUsers.forEach((user, index) => {
+      const node = buildUserNode(
+        user,
+        positions[index],
+        cy,
+        radius,
+        defs,
+        `${room.id}-${user.id}`
+      );
+      overlayGroup.appendChild(node);
+    });
+
+    if (overflow > 0) {
+      overlayGroup.appendChild(
+        buildOverflowNode(overflow, positions[visibleUsers.length], cy, radius)
+      );
+    }
+    return;
   }
 }
 
@@ -459,7 +542,7 @@ function renderRoomOverlay(
 
   renderNameBand(displayName, nameBand, overlayGroup);
   renderInventoryBand(room, inventoryBand, overlayGroup);
-  renderPeopleBand(room, peopleBand, defs, overlayGroup);
+  renderPeopleBand(room, peopleBand, el, bbox, defs, overlayGroup);
 }
 
 export default function FloorMap({

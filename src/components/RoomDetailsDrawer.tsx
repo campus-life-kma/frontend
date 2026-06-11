@@ -4,11 +4,17 @@ import RoomDetailsPanel from './RoomDetailsPanel';
 
 interface RoomDetailsDrawerProps {
   room: RoomOnMap | null;
+  floorId?: number | null;
+  floorNumber?: number | null;
+  dormitoryName?: string | null;
   onClose: () => void;
 }
 
 export default function RoomDetailsDrawer({
   room,
+  floorId,
+  floorNumber,
+  dormitoryName,
   onClose,
 }: RoomDetailsDrawerProps) {
   useEffect(() => {
@@ -56,7 +62,12 @@ export default function RoomDetailsDrawer({
         >
           ×
         </button>
-        <RoomDetailsPanel room={room} />
+        <RoomDetailsPanel
+          room={room}
+          floorId={floorId}
+          floorNumber={floorNumber}
+          dormitoryName={dormitoryName}
+        />
       </div>
     </div>
   );

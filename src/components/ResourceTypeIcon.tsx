@@ -11,16 +11,30 @@ export default function ResourceTypeIcon({
   size = 18,
 }: ResourceTypeIconProps) {
   const iconUrl = resolveMediaUrl(resource.resource_icon ?? null);
-  if (!iconUrl) return null;
+  const opacity = resource.is_blocked ? 0.4 : 1;
 
   return (
-    <img
-      src={iconUrl}
-      alt=""
-      width={size}
-      height={size}
-      className="shrink-0"
-      style={{ opacity: resource.is_blocked ? 0.4 : 1 }}
-    />
+    <span
+      className={
+        'inline-flex shrink-0 items-center justify-center overflow-hidden ' +
+        'rounded bg-gray-100 text-[10px] font-semibold text-gray-500'
+      }
+      style={{ width: size, height: size, opacity }}
+      title={
+        resource.resource_icon ? resource.name : 'Іконка ресурсу не вказана'
+      }
+    >
+      {iconUrl ? (
+        <img
+          src={iconUrl}
+          alt=""
+          width={size}
+          height={size}
+          className="h-full w-full object-contain"
+        />
+      ) : (
+        (resource.name.trim()[0]?.toUpperCase() ?? '?')
+      )}
+    </span>
   );
 }
