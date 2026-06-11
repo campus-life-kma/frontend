@@ -69,14 +69,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
     try {
+      const apiUrl = import.meta.env.VITE_API_URL;
       const { data } = await axios.post<RefreshResponse>(
-        `${import.meta.env.VITE_API_URL}/auth/refresh/`,
+        `${apiUrl}/auth/refresh/`,
         { refresh: refreshToken }
       );
       if (data.refresh) {
         localStorage.setItem(REFRESH_STORAGE_KEY, data.refresh);
       }
-      set({ accessToken: data.access, isBootstrapped: true });
+      set({ accessToken: data.access });
+
+      // Refresh the persisted profile so newly added fields (e.g. room_id)
+      // and admin-side changes (room, role) are picked up without re-login.
+      try {
+        const { data: me } = await axios.get<User>(`${apiUrl}/auth/me/`, {
+          headers: { Authorization: `Bearer ${data.access}` },
+        });
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(me));
+        set({ user: me });
+      } catch {
+        // Keep the persisted user if the profile refresh fails.
+      }
+
+      set({ isBootstrapped: true });
     } catch {
       localStorage.removeItem(REFRESH_STORAGE_KEY);
       localStorage.removeItem(USER_STORAGE_KEY);
