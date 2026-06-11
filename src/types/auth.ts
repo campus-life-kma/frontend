@@ -3,6 +3,7 @@ export interface User {
   email: string;
   role: string | null;
   full_name: string | null;
+  room_id: string | null;
   floor_id: string | null;
   dormitory_id: string | null;
   photo: string | null;

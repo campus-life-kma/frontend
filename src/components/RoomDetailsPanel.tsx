@@ -1,4 +1,9 @@
+import axios from 'axios';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RoomOnMap } from '../types/locations';
+import { useAuthStore } from '../store/authStore';
+import { checkIn, getMyPresence, goHome } from '../api/presence';
+import { blockRoom, unblockRoom } from '../api/rooms';
 import UserAvatar from './UserAvatar';
 import ResourceTypeIcon from './ResourceTypeIcon';
 import { Link } from 'react-router-dom';
@@ -20,12 +25,51 @@ const ROOM_TYPE_LABEL: Record<string, string> = {
   STORAGE: 'Склад',
 };
 
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const detail = (error.response?.data as { detail?: string } | undefined)
+      ?.detail;
+    if (detail) return detail;
+  }
+  return fallback;
+}
+
 export default function RoomDetailsPanel({
   room,
   floorId,
   floorNumber,
   dormitoryName,
 }: RoomDetailsPanelProps) {
+  const user = useAuthStore((state) => state.user);
+  const queryClient = useQueryClient();
+
+  const presenceQuery = useQuery({
+    queryKey: ['presence-me'],
+    queryFn: getMyPresence,
+  });
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['floor-map'] });
+    queryClient.invalidateQueries({ queryKey: ['presence-me'] });
+  };
+
+  const checkInMutation = useMutation({
+    mutationFn: (roomId: number) => checkIn(roomId),
+    onSuccess: refresh,
+  });
+  const goHomeMutation = useMutation({
+    mutationFn: goHome,
+    onSuccess: refresh,
+  });
+  const blockMutation = useMutation({
+    mutationFn: (roomId: number) => blockRoom(roomId),
+    onSuccess: refresh,
+  });
+  const unblockMutation = useMutation({
+    mutationFn: (roomId: number) => unblockRoom(roomId),
+    onSuccess: refresh,
+  });
+
   if (!room) {
     return (
       <p className="text-sm text-gray-500">
@@ -36,6 +80,37 @@ export default function RoomDetailsPanel({
 
   const typeLabel = ROOM_TYPE_LABEL[room.room_type] ?? room.room_type;
   const hasEvents = room.active_events.length > 0;
+  const isAdmin = user?.role === 'ADMIN';
+
+  const homeRoomId = user?.room_id ? Number(user.room_id) : null;
+  const presence = presenceQuery.data ?? null;
+  const isHome = homeRoomId !== null && room.id === homeRoomId;
+  const isPresentHere = presence?.room_id === room.id;
+  const isAway = presence !== null;
+
+  const presenceBusy = checkInMutation.isPending || goHomeMutation.isPending;
+  const blockBusy = blockMutation.isPending || unblockMutation.isPending;
+  const actionError =
+    checkInMutation.error ??
+    goHomeMutation.error ??
+    blockMutation.error ??
+    unblockMutation.error;
+
+  const goHomeButton = (
+    <button
+      id="room-go-home"
+      type="button"
+      onClick={() => goHomeMutation.mutate()}
+      disabled={presenceBusy}
+      className={
+        'w-full rounded-md border border-gray-300 px-4 py-2 font-medium ' +
+        'text-gray-700 transition hover:bg-gray-50 ' +
+        'disabled:cursor-not-allowed disabled:opacity-60'
+      }
+    >
+      {presenceBusy ? 'Зачекайте…' : 'Повернутися додому'}
+    </button>
+  );
 
   return (
     <div id={`room-details-${room.id}`} className="flex flex-col gap-4 text-sm">
@@ -152,6 +227,82 @@ export default function RoomDetailsPanel({
           </ul>
         </section>
       )}
+
+      <footer className="flex flex-col gap-2 border-t border-gray-100 pt-4">
+        {isPresentHere ? (
+          <>
+            <button
+              id="room-extend"
+              type="button"
+              onClick={() => checkInMutation.mutate(room.id)}
+              disabled={presenceBusy || room.is_blocked}
+              className={
+                'w-full rounded-md bg-blue-600 px-4 py-2 font-medium ' +
+                'text-white transition hover:bg-blue-700 ' +
+                'disabled:cursor-not-allowed disabled:bg-blue-300'
+              }
+            >
+              {checkInMutation.isPending ? 'Продовжуємо…' : 'Продовжити'}
+            </button>
+            {goHomeButton}
+          </>
+        ) : isHome ? (
+          isAway && goHomeButton
+        ) : (
+          !room.is_blocked && (
+            <button
+              id="room-check-in"
+              type="button"
+              onClick={() => checkInMutation.mutate(room.id)}
+              disabled={presenceBusy}
+              className={
+                'w-full rounded-md bg-blue-600 px-4 py-2 font-medium ' +
+                'text-white transition hover:bg-blue-700 ' +
+                'disabled:cursor-not-allowed disabled:bg-blue-300'
+              }
+            >
+              {checkInMutation.isPending ? 'Відмічаємо…' : 'Відмітитися тут'}
+            </button>
+          )
+        )}
+
+        {isAdmin &&
+          (room.is_blocked ? (
+            <button
+              id="room-unblock"
+              type="button"
+              onClick={() => unblockMutation.mutate(room.id)}
+              disabled={blockBusy}
+              className={
+                'w-full rounded-md border border-gray-300 px-4 py-2 ' +
+                'font-medium text-gray-700 transition hover:bg-gray-50 ' +
+                'disabled:cursor-not-allowed disabled:opacity-60'
+              }
+            >
+              {blockBusy ? 'Зачекайте…' : 'Розблокувати кімнату'}
+            </button>
+          ) : (
+            <button
+              id="room-block"
+              type="button"
+              onClick={() => blockMutation.mutate(room.id)}
+              disabled={blockBusy}
+              className={
+                'w-full rounded-md border border-red-300 px-4 py-2 ' +
+                'font-medium text-red-700 transition hover:bg-red-50 ' +
+                'disabled:cursor-not-allowed disabled:opacity-60'
+              }
+            >
+              {blockBusy ? 'Зачекайте…' : 'Заблокувати кімнату'}
+            </button>
+          ))}
+
+        {actionError && (
+          <p role="alert" className="text-xs text-red-700">
+            {extractErrorMessage(actionError, 'Дію не вдалося виконати.')}
+          </p>
+        )}
+      </footer>
     </div>
   );
 }

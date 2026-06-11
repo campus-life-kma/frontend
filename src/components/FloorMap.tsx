@@ -161,8 +161,6 @@ function buildOverflowNode(
   return wrapper;
 }
 
-// One on-map icon per distinct resource type (two stoves + one washer => a
-// stove icon and a washer icon). Keeps the server icon and aggregates names.
 interface ResourceIcon {
   key: string;
   iconUrl: string | null;
