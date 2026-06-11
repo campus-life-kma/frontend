@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { RoomOnMap } from '../types/locations';
 import { updateRoom, createResource, deleteResource } from '../api/locations';
@@ -44,7 +44,6 @@ export default function RoomEditPanel({
   const [name, setName] = useState(room.name);
   const [roomType, setRoomType] = useState(room.room_type as string);
   const [maxPerson, setMaxPerson] = useState(room.max_person);
-  const [isBlocked, setIsBlocked] = useState(room.is_blocked);
   const [errorMsg, setErrorMsg] = useState('');
 
   const [isAddingResource, setIsAddingResource] = useState(false);
@@ -70,7 +69,6 @@ export default function RoomEditPanel({
         name,
         room_type: selectedType ? selectedType.id : undefined,
         max_person: maxPerson,
-        is_blocked: isBlocked,
       });
     },
     onSuccess: () => {
@@ -111,15 +109,6 @@ export default function RoomEditPanel({
       setErrorMsg(err.response?.data?.detail || 'Помилка створення ресурсу');
     },
   });
-
-  const hasResidents = room.current_users.length > 0;
-
-  useEffect(() => {
-    if (hasResidents && isBlocked) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsBlocked(false);
-    }
-  }, [hasResidents, isBlocked]);
 
   const canHaveResources = ['KITCHEN', 'LAUNDRY'].includes(roomType);
 
@@ -184,44 +173,6 @@ export default function RoomEditPanel({
             onChange={(e) => setMaxPerson(Number(e.target.value))}
           />
         </div>
-
-        <label className="mt-2 flex cursor-pointer items-center gap-3">
-          <div className="relative">
-            <input
-              type="checkbox"
-              className="sr-only"
-              checked={isBlocked}
-              disabled={hasResidents}
-              onChange={(e) => setIsBlocked(e.target.checked)}
-            />
-            <div
-              className={`block h-6 w-10 rounded-full transition-colors ${
-                isBlocked
-                  ? 'bg-red-500'
-                  : hasResidents
-                    ? 'bg-gray-200'
-                    : 'bg-gray-300'
-              }`}
-            ></div>
-            <div
-              className={`dot absolute top-1 left-1 h-4 w-4 rounded-full bg-white transition-transform ${
-                isBlocked ? 'translate-x-4' : ''
-              }`}
-            ></div>
-          </div>
-          <div className="flex flex-col">
-            <span
-              className={`font-medium ${isBlocked ? 'text-red-600' : 'text-gray-700'}`}
-            >
-              Заблокована кімната
-            </span>
-            {hasResidents && (
-              <span className="text-xs text-red-500">
-                Неможливо заблокувати: в кімнаті є мешканці
-              </span>
-            )}
-          </div>
-        </label>
       </section>
 
       <section className="mt-2 border-t pt-4">
