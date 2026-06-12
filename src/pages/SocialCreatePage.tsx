@@ -180,7 +180,7 @@ export default function SocialCreatePage() {
 
   const eventMutation = useMutation({
     mutationFn: createEvent,
-    onSuccess: (event) => navigate(`/feed?eventId=${event.id}`),
+    onSuccess: () => navigate('/feed'),
     onError: (mutationError) => setError(normalizeError(mutationError)),
   });
 
@@ -193,7 +193,7 @@ export default function SocialCreatePage() {
 
   const sharingMutation = useMutation({
     mutationFn: createSharingRequest,
-    onSuccess: (request) => navigate(`/feed?sharingId=${request.id}`),
+    onSuccess: () => navigate('/feed'),
     onError: (mutationError) => setError(normalizeError(mutationError)),
   });
 

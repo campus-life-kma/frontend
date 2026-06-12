@@ -15,7 +15,6 @@ import {
   getSharingRequest,
   joinEvent,
   leaveEvent,
-  updateEvent,
 } from '../api/social';
 import {
   createAnnouncement,
@@ -46,9 +45,7 @@ type FeedOrdering = 'created_at' | 'start_time';
 type PendingDelete =
   | { kind: 'event'; id: number; title: string }
   | { kind: 'sharing'; id: number; title: string };
-type PendingComplete =
-  | { kind: 'event'; id: number; title: string }
-  | { kind: 'sharing'; id: number; title: string };
+type PendingComplete = { kind: 'sharing'; id: number; title: string };
 
 const ANNOUNCEMENT_ERROR_LABELS: Record<string, string> = {
   title: 'Заголовок',
@@ -132,15 +129,6 @@ function isEvent(item: FeedItem): item is SocialEvent {
 
 function isSharing(item: FeedItem): item is SocialSharingRequest {
   return item.type === 'sharing_request';
-}
-
-function isActiveEvent(event: SocialEvent): boolean {
-  const now = new Date();
-  return (
-    event.status === 'ACTIVE' &&
-    new Date(event.start_time) <= now &&
-    new Date(event.end_time) > now
-  );
 }
 
 function canCancelSocialItem(item: FeedItem): boolean {
@@ -447,18 +435,6 @@ export default function SocialFeedPage() {
     onError: (error) => setActionError(normalizeError(error)),
   });
 
-  const completeEventMutation = useMutation({
-    mutationFn: (eventIdToComplete: number) =>
-      updateEvent(eventIdToComplete, { end_time: new Date().toISOString() }),
-    onSuccess: async () => {
-      setPendingComplete(null);
-      closeModal();
-      await queryClient.invalidateQueries({ queryKey: ['feed'] });
-      await queryClient.invalidateQueries({ queryKey: ['event-detail'] });
-    },
-    onError: (error) => setActionError(normalizeError(error)),
-  });
-
   function updateParam(key: string, value: string | null) {
     const next = new URLSearchParams(searchParams);
     if (!value || value === 'all') next.delete(key);
@@ -505,10 +481,7 @@ export default function SocialFeedPage() {
     pendingDelete?.kind === 'event' ? 'подію' : 'запит на шеринг';
   const isDeleting =
     deleteEventMutation.isPending || deleteSharingMutation.isPending;
-  const pendingCompleteLabel =
-    pendingComplete?.kind === 'event' ? 'івент' : 'запит на шеринг';
-  const isCompleting =
-    completeEventMutation.isPending || completeSharingMutation.isPending;
+  const isCompleting = completeSharingMutation.isPending;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -624,7 +597,6 @@ export default function SocialFeedPage() {
           onLeave={(id) => leaveMutation.mutate(id)}
           onDeleteEvent={(item) => setPendingDelete(item)}
           onDeleteSharing={(item) => setPendingDelete(item)}
-          onCompleteEvent={(item) => setPendingComplete(item)}
           onCompleteSharing={(item) => setPendingComplete(item)}
         />
       )}
@@ -667,23 +639,13 @@ export default function SocialFeedPage() {
       {pendingComplete && (
         <ConfirmDialog
           variant="info"
-          title={`Позначити ${pendingCompleteLabel} виконаним?`}
-          description={
-            pendingComplete.kind === 'event'
-              ? `Івент «${pendingComplete.title}» буде завершено зараз і зникне з актуальної стрічки.`
-              : `Запит «${pendingComplete.title}» отримає статус «Виконано» і зникне з активної стрічки.`
-          }
+          title="Позначити запит на шеринг виконаним?"
+          description={`Запит «${pendingComplete.title}» отримає статус «Виконано» і зникне з активної стрічки.`}
           cancelLabel="Не зараз"
           confirmLabel={isCompleting ? 'Оновлюємо…' : 'Позначити виконаним'}
           isPending={isCompleting}
           onClose={() => setPendingComplete(null)}
-          onConfirm={() => {
-            if (pendingComplete.kind === 'event') {
-              completeEventMutation.mutate(pendingComplete.id);
-            } else {
-              completeSharingMutation.mutate(pendingComplete.id);
-            }
-          }}
+          onConfirm={() => completeSharingMutation.mutate(pendingComplete.id)}
         />
       )}
     </div>
@@ -1412,7 +1374,6 @@ function DetailsModal({
   onLeave,
   onDeleteEvent,
   onDeleteSharing,
-  onCompleteEvent,
   onCompleteSharing,
 }: {
   event?: SocialEvent;
@@ -1427,7 +1388,6 @@ function DetailsModal({
   onLeave: (id: number) => void;
   onDeleteEvent: (item: PendingDelete) => void;
   onDeleteSharing: (item: PendingDelete) => void;
-  onCompleteEvent: (item: PendingComplete) => void;
   onCompleteSharing: (item: PendingComplete) => void;
 }) {
   const item = event ?? sharing;
@@ -1438,7 +1398,6 @@ function DetailsModal({
   const canEdit = item ? isOwner && canCancelSocialItem(item) : false;
   const canCompleteSharing =
     Boolean(sharing) && sharing?.status === 'ACTIVE' && isOwner;
-  const canCompleteEvent = event ? isOwner && isActiveEvent(event) : false;
   const joined =
     event?.participants?.some(
       (participant) => participant.id === currentUserId
@@ -1585,21 +1544,6 @@ function DetailsModal({
                 {joined ? "Від'єднатися" : 'Приєднатися'}
               </button>
             )}
-            {canCompleteEvent && event && (
-              <button
-                type="button"
-                onClick={() =>
-                  onCompleteEvent({
-                    kind: 'event',
-                    id: event.id,
-                    title: event.title,
-                  })
-                }
-                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-              >
-                Завершити івент
-              </button>
-            )}
             {canCompleteSharing && sharing && (
               <button
                 type="button"
@@ -1660,16 +1604,6 @@ function DetailsModal({
                 Редагувати
               </Link>
             )}
-            <button
-              type="button"
-              onClick={onClose}
-              className={
-                'rounded-md bg-emerald-600 px-4 py-2 text-sm ' +
-                'font-semibold text-white hover:bg-emerald-700'
-              }
-            >
-              Готово
-            </button>
           </div>
         )}
       </div>
