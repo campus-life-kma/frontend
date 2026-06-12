@@ -1,5 +1,6 @@
 import api from './axios-instance';
 import type {
+  FacultyListItem,
   MajorListItem,
   RoleListItem,
   RoomTypeListItem,
@@ -8,6 +9,11 @@ import type {
 
 export async function getRoles(): Promise<RoleListItem[]> {
   const { data } = await api.get<RoleListItem[]>('/roles/');
+  return data;
+}
+
+export async function getFaculties(): Promise<FacultyListItem[]> {
+  const { data } = await api.get<FacultyListItem[]>('/faculties/');
   return data;
 }
 

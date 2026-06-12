@@ -3,6 +3,11 @@ export interface RoleListItem {
   name: string;
 }
 
+export interface FacultyListItem {
+  id: number;
+  name: string;
+}
+
 export interface MajorListItem {
   id: number;
   name: string;

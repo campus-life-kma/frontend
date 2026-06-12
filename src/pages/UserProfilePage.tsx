@@ -8,7 +8,7 @@ import {
   useSearchParams,
 } from 'react-router-dom';
 import { cancelBooking, getMyBookings } from '../api/bookings';
-import { getMajors, getRoles } from '../api/dictionaries';
+import { getFaculties, getMajors, getRoles } from '../api/dictionaries';
 import { getRooms } from '../api/locations';
 import {
   deleteEvent,
@@ -29,7 +29,11 @@ import UserAvatar from '../components/UserAvatar';
 import ConfirmDialog from '../components/UI/ConfirmDialog';
 import { useAuthStore } from '../store/authStore';
 import type { Booking } from '../types/bookings';
-import type { MajorListItem, RoleListItem } from '../types/dictionaries';
+import type {
+  FacultyListItem,
+  MajorListItem,
+  RoleListItem,
+} from '../types/dictionaries';
 import type { RoomListItem } from '../types/locations';
 import type {
   FeedItem,
@@ -38,6 +42,7 @@ import type {
 } from '../types/social';
 import type {
   EducationLevel,
+  Position,
   UserProfile,
   UserProfileEvent,
   UserProfileSharingRequest,
@@ -273,6 +278,12 @@ export default function UserProfilePage() {
     enabled: isAdmin && !!targetUserId,
   });
 
+  const facultiesQuery = useQuery({
+    queryKey: ['faculties'],
+    queryFn: getFaculties,
+    enabled: isAdmin && !!targetUserId,
+  });
+
   const majorsQuery = useQuery({
     queryKey: ['majors'],
     queryFn: getMajors,
@@ -467,10 +478,12 @@ export default function UserProfilePage() {
               canEditIdentity={canEditIdentity}
               canEditStatusBio={canEditStatusBio}
               roles={rolesQuery.data ?? []}
+              faculties={facultiesQuery.data ?? []}
               majors={majorsQuery.data ?? []}
               rooms={roomsQuery.data ?? []}
               dictionariesLoading={
                 rolesQuery.isLoading ||
+                facultiesQuery.isLoading ||
                 majorsQuery.isLoading ||
                 roomsQuery.isLoading
               }
@@ -578,6 +591,7 @@ function ProfileHeader({
   canEditIdentity,
   canEditStatusBio,
   roles,
+  faculties,
   majors,
   rooms,
   dictionariesLoading,
@@ -593,6 +607,7 @@ function ProfileHeader({
   canEditIdentity: boolean;
   canEditStatusBio: boolean;
   roles: RoleListItem[];
+  faculties: FacultyListItem[];
   majors: MajorListItem[];
   rooms: RoomListItem[];
   dictionariesLoading: boolean;
@@ -613,6 +628,10 @@ function ProfileHeader({
         return a.name.localeCompare(b.name, 'uk');
       }),
     [rooms]
+  );
+  const sortedFaculties = useMemo(
+    () => [...faculties].sort((a, b) => a.name.localeCompare(b.name, 'uk')),
+    [faculties]
   );
 
   const canEditAdminField = isAdmin && !dictionariesLoading;
@@ -811,7 +830,26 @@ function ProfileHeader({
               <option value="EMPLOYEE">Працівник</option>
             </EditableInfoLine>
 
-            {profile.position !== 'EMPLOYEE' && (
+            {profile.position === 'TEACHER' && (
+              <EditableInfoLine
+                label="Факультет"
+                value={profile.faculty_name ?? 'Не вказано'}
+                editValue={profile.faculty_id ? String(profile.faculty_id) : ''}
+                canEdit={canEditAdminField}
+                saving={saving}
+                onSave={(value) =>
+                  onSave({ faculty: value ? Number(value) : null })
+                }
+              >
+                <option value="">Без факультету</option>
+                {sortedFaculties.map((faculty) => (
+                  <option key={faculty.id} value={faculty.id}>
+                    {faculty.name}
+                  </option>
+                ))}
+              </EditableInfoLine>
+            )}
+            {profile.position === 'STUDENT' && (
               <div className="rounded-md bg-gray-50 px-3 py-2">
                 <p className="text-xs font-medium tracking-wide text-gray-400 uppercase">
                   Факультет
