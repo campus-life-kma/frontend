@@ -905,9 +905,7 @@ function ProfileHeader({
                   <option value="PHD">Аспірант</option>
                 </EditableInfoLine>
                 <EditableInfoLine
-                  label={
-                    profile.education_level === 'PHD' ? 'Рік навчання' : 'Курс'
-                  }
+                  label="Курс"
                   value={
                     formatStudyYear(profile.education_level, profile.year) ??
                     'Не вказано'
@@ -920,20 +918,12 @@ function ProfileHeader({
                   }
                 >
                   <option value="">Не вказано</option>
-                  <option value="1">
-                    {profile.education_level === 'PHD' ? '1 рік' : '1 курс'}
-                  </option>
-                  <option value="2">
-                    {profile.education_level === 'PHD' ? '2 рік' : '2 курс'}
-                  </option>
+                  <option value="1">1 курс</option>
+                  <option value="2">2 курс</option>
                   {profile.education_level !== 'MASTER' && (
                     <>
-                      <option value="3">
-                        {profile.education_level === 'PHD' ? '3 рік' : '3 курс'}
-                      </option>
-                      <option value="4">
-                        {profile.education_level === 'PHD' ? '4 рік' : '4 курс'}
-                      </option>
+                      <option value="3">3 курс</option>
+                      <option value="4">4 курс</option>
                     </>
                   )}
                 </EditableInfoLine>
