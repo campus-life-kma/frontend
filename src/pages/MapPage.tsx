@@ -98,7 +98,7 @@ export default function MapPage() {
           </Link>
         )}
 
-        {mapQuery.data?.number === 2 && (
+        {mapQuery.data?.notice && (
           <div
             className={
               'absolute bottom-6 left-1/2 z-10 w-max max-w-sm ' +
@@ -106,7 +106,7 @@ export default function MapPage() {
               'text-center text-sm font-medium text-amber-800 shadow-lg'
             }
           >
-            ⚠️ 2-й поверх не належить гуртожитку, це звичайний житловий будинок.
+            ⚠️ {mapQuery.data.notice}
           </div>
         )}
 

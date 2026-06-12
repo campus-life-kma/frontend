@@ -61,6 +61,7 @@ export interface FloorMapData {
   number: number;
   map_file: string | null;
   dormitory_name: string;
+  notice: string;
   rooms: RoomOnMap[];
   active_floor_events: EventOnMap[];
 }
