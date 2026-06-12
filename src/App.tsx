@@ -9,6 +9,7 @@ import AuthCallbackPage from './pages/AuthCallbackPage';
 import UserProfilePage from './pages/UserProfilePage';
 import StatisticsPage from './pages/StatisticsPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import AutoElementIds from './components/AutoElementIds';
 import { useAuthStore } from './store/authStore';
 
 function App() {
@@ -31,75 +32,78 @@ function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/auth/callback" element={<AuthCallbackPage />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <MapPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/resources/:resourceId"
-        element={
-          <ProtectedRoute>
-            <ResourceBookingPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/feed"
-        element={
-          <ProtectedRoute>
-            <SocialFeedPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/feed/create"
-        element={
-          <ProtectedRoute>
-            <SocialCreatePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile/me"
-        element={
-          <ProtectedRoute>
-            <UserProfilePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile/:userId"
-        element={
-          <ProtectedRoute>
-            <UserProfilePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/users/:userId"
-        element={
-          <ProtectedRoute>
-            <UserProfilePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/statistics"
-        element={
-          <ProtectedRoute>
-            <StatisticsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <AutoElementIds />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <MapPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/resources/:resourceId"
+          element={
+            <ProtectedRoute>
+              <ResourceBookingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/feed"
+          element={
+            <ProtectedRoute>
+              <SocialFeedPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/feed/create"
+          element={
+            <ProtectedRoute>
+              <SocialCreatePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/me"
+          element={
+            <ProtectedRoute>
+              <UserProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/:userId"
+          element={
+            <ProtectedRoute>
+              <UserProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users/:userId"
+          element={
+            <ProtectedRoute>
+              <UserProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/statistics"
+          element={
+            <ProtectedRoute>
+              <StatisticsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
 
