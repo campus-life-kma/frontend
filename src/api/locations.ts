@@ -2,7 +2,9 @@ import api from './axios-instance';
 import type {
   FloorListItem,
   FloorMapData,
+  RoomCreatePayload,
   RoomListItem,
+  RoomOnMap,
   RoomUpdatePayload,
   ResourcePayload,
   ResourceOnMap,
@@ -32,6 +34,21 @@ export async function updateRoom(
   payload: RoomUpdatePayload
 ): Promise<void> {
   await api.patch(`/rooms/${roomId}/`, payload);
+}
+
+export async function deleteRoom(roomId: string | number): Promise<void> {
+  await api.delete(`/rooms/${roomId}/`);
+}
+
+export async function createRoom(
+  floorId: string | number,
+  payload: RoomCreatePayload
+): Promise<RoomOnMap> {
+  const { data } = await api.post<RoomOnMap>(
+    `/floors/${floorId}/rooms/`,
+    payload
+  );
+  return data;
 }
 
 export async function createResource(

@@ -12,7 +12,10 @@ import type {
 interface FloorMapProps {
   data: FloorMapData;
   onRoomClick: (room: RoomOnMap) => void;
+  onInactiveRoomClick?: (svgElementId: string) => void;
   selectedRoomId: number | null;
+  selectedInactiveRoomId?: string | null;
+  canActivateInactiveRooms?: boolean;
 }
 
 const ROOM_TYPE_COLOR: Record<string, string> = {
@@ -28,6 +31,8 @@ const DEFAULT_FILL = '#e5e7eb';
 const DEFAULT_STROKE = '#3A4A6B';
 const SELECTED_STROKE = '#1d4ed8';
 const DISABLED_FILL = '#e9e9e9';
+const INACTIVE_HOVER_FILL = '#fef3c7';
+const INACTIVE_SELECTED_STROKE = '#d97706';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const OVERLAY_CLASS = 'campus-life-overlay';
@@ -548,7 +553,10 @@ function renderRoomOverlay(
 export default function FloorMap({
   data,
   onRoomClick,
+  onInactiveRoomClick,
   selectedRoomId,
+  selectedInactiveRoomId,
+  canActivateInactiveRooms = false,
 }: FloorMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -592,19 +600,63 @@ export default function FloorMap({
 
     allRoomPolygons.forEach((el) => {
       if (apiRoomIds.has(el.id)) return;
-      // Non-functional room: not part of the dorm
       el.setAttribute('fill', DISABLED_FILL);
       el.setAttribute('fill-opacity', '0.6');
-      el.style.cursor = 'not-allowed';
+      el.setAttribute(
+        'stroke',
+        selectedInactiveRoomId === el.id
+          ? INACTIVE_SELECTED_STROKE
+          : DEFAULT_STROKE
+      );
+      el.setAttribute(
+        'stroke-width',
+        selectedInactiveRoomId === el.id ? '6' : '4'
+      );
+      el.style.cursor = canActivateInactiveRooms ? 'pointer' : 'not-allowed';
       el.style.pointerEvents = 'auto';
       const existingTitle = el.querySelector('title');
+      const titleText = canActivateInactiveRooms
+        ? 'Натисніть, щоб додати кімнату до гуртожитку'
+        : 'Ця кімната не належить гуртожитку';
       if (existingTitle) {
-        existingTitle.textContent = 'Ця кімната не належить гуртожитку';
+        existingTitle.textContent = titleText;
       } else {
         const newTitle = document.createElementNS(SVG_NS, 'title');
-        newTitle.textContent = 'Ця кімната не належить гуртожитку';
+        newTitle.textContent = titleText;
         el.appendChild(newTitle);
       }
+
+      if (!canActivateInactiveRooms) return;
+
+      const onEnter = () => {
+        el.setAttribute('fill', INACTIVE_HOVER_FILL);
+        el.setAttribute('fill-opacity', '0.85');
+        el.setAttribute('stroke', INACTIVE_SELECTED_STROKE);
+        el.setAttribute('stroke-width', '5');
+      };
+      const onLeave = () => {
+        el.setAttribute('fill', DISABLED_FILL);
+        el.setAttribute('fill-opacity', '0.6');
+        el.setAttribute(
+          'stroke',
+          selectedInactiveRoomId === el.id
+            ? INACTIVE_SELECTED_STROKE
+            : DEFAULT_STROKE
+        );
+        el.setAttribute(
+          'stroke-width',
+          selectedInactiveRoomId === el.id ? '6' : '4'
+        );
+      };
+      const onClick = () => onInactiveRoomClick?.(el.id);
+      el.addEventListener('mouseenter', onEnter);
+      el.addEventListener('mouseleave', onLeave);
+      el.addEventListener('click', onClick);
+      cleanups.push(() => {
+        el.removeEventListener('mouseenter', onEnter);
+        el.removeEventListener('mouseleave', onLeave);
+        el.removeEventListener('click', onClick);
+      });
     });
 
     for (const room of data.rooms) {
@@ -658,7 +710,15 @@ export default function FloorMap({
       for (const cleanup of cleanups) cleanup();
       overlayGroup.remove();
     };
-  }, [data.rooms, svgQuery.data, selectedRoomId, onRoomClick]);
+  }, [
+    data.rooms,
+    svgQuery.data,
+    selectedRoomId,
+    selectedInactiveRoomId,
+    canActivateInactiveRooms,
+    onRoomClick,
+    onInactiveRoomClick,
+  ]);
 
   if (!data.map_file) {
     return (

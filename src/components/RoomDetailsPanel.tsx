@@ -1,18 +1,22 @@
 import axios from 'axios';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RoomOnMap } from '../types/locations';
 import { useAuthStore } from '../store/authStore';
 import { checkIn, getMyPresence, goHome } from '../api/presence';
 import { blockRoom, unblockRoom } from '../api/rooms';
+import { deleteRoom } from '../api/locations';
 import UserAvatar from './UserAvatar';
 import ResourceTypeIcon from './ResourceTypeIcon';
 import { Link } from 'react-router-dom';
+import ConfirmDialog from './UI/ConfirmDialog';
 
 interface RoomDetailsPanelProps {
   room: RoomOnMap | null;
   floorId?: number | null;
   floorNumber?: number | null;
   dormitoryName?: string | null;
+  onRoomDeleted?: () => void;
 }
 
 const ROOM_TYPE_LABEL: Record<string, string> = {
@@ -39,9 +43,11 @@ export default function RoomDetailsPanel({
   floorId,
   floorNumber,
   dormitoryName,
+  onRoomDeleted,
 }: RoomDetailsPanelProps) {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const presenceQuery = useQuery({
     queryKey: ['presence-me'],
@@ -69,6 +75,17 @@ export default function RoomDetailsPanel({
     mutationFn: (roomId: number) => unblockRoom(roomId),
     onSuccess: refresh,
   });
+  const deleteRoomMutation = useMutation({
+    mutationFn: (roomId: number) => deleteRoom(roomId),
+    onSuccess: () => {
+      refresh();
+      setConfirmDeleteOpen(false);
+      onRoomDeleted?.();
+    },
+    onError: () => {
+      setConfirmDeleteOpen(false);
+    },
+  });
 
   if (!room) {
     return (
@@ -95,7 +112,8 @@ export default function RoomDetailsPanel({
     checkInMutation.error ??
     goHomeMutation.error ??
     blockMutation.error ??
-    unblockMutation.error;
+    unblockMutation.error ??
+    deleteRoomMutation.error;
 
   const goHomeButton = (
     <button
@@ -269,19 +287,34 @@ export default function RoomDetailsPanel({
 
         {isAdmin &&
           (room.is_blocked ? (
-            <button
-              id="room-unblock"
-              type="button"
-              onClick={() => unblockMutation.mutate(room.id)}
-              disabled={blockBusy}
-              className={
-                'w-full rounded-md border border-gray-300 px-4 py-2 ' +
-                'font-medium text-gray-700 transition hover:bg-gray-50 ' +
-                'disabled:cursor-not-allowed disabled:opacity-60'
-              }
-            >
-              {blockBusy ? 'Зачекайте…' : 'Розблокувати кімнату'}
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                id="room-unblock"
+                type="button"
+                onClick={() => unblockMutation.mutate(room.id)}
+                disabled={blockBusy || deleteRoomMutation.isPending}
+                className={
+                  'w-full rounded-md border border-gray-300 px-4 py-2 ' +
+                  'font-medium text-gray-700 transition hover:bg-gray-50 ' +
+                  'disabled:cursor-not-allowed disabled:opacity-60'
+                }
+              >
+                {blockBusy ? 'Зачекайте…' : 'Розблокувати кімнату'}
+              </button>
+              <button
+                id="room-delete-from-dormitory"
+                type="button"
+                onClick={() => setConfirmDeleteOpen(true)}
+                disabled={deleteRoomMutation.isPending}
+                className={
+                  'w-full rounded-md border border-red-300 px-4 py-2 ' +
+                  'font-medium text-red-700 transition hover:bg-red-50 ' +
+                  'disabled:cursor-not-allowed disabled:opacity-60'
+                }
+              >
+                Вилучити з гуртожитку
+              </button>
+            </div>
           ) : (
             <div className="flex flex-col gap-1">
               <button
@@ -302,6 +335,11 @@ export default function RoomDetailsPanel({
                   Неможливо заблокувати: в кімнаті є мешканці
                 </span>
               )}
+              {!hasResidents && (
+                <span className="text-center text-xs text-gray-500">
+                  Щоб вилучити кімнату з гуртожитку, спочатку заблокуйте її.
+                </span>
+              )}
             </div>
           ))}
 
@@ -311,6 +349,21 @@ export default function RoomDetailsPanel({
           </p>
         )}
       </footer>
+
+      {confirmDeleteOpen && (
+        <ConfirmDialog
+          title="Вилучити кімнату з гуртожитку?"
+          description={
+            `Кімната "${room.name}" зникне з активної мапи Campus Life. ` +
+            'Її зона знову відображатиметься як частина житлового будинку.'
+          }
+          confirmLabel="Вилучити"
+          variant="danger"
+          isPending={deleteRoomMutation.isPending}
+          onClose={() => setConfirmDeleteOpen(false)}
+          onConfirm={() => deleteRoomMutation.mutate(room.id)}
+        />
+      )}
     </div>
   );
 }

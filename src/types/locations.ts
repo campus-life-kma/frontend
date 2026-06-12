@@ -56,6 +56,10 @@ export interface RoomOnMap {
   active_events: EventOnMap[];
 }
 
+export interface InactiveRoomOnMap {
+  svg_element_id: string;
+}
+
 export interface FloorMapData {
   id: number;
   number: number;
@@ -71,6 +75,14 @@ export interface RoomUpdatePayload {
   room_type?: number;
   max_person?: number;
   is_blocked?: boolean;
+}
+
+export interface RoomCreatePayload {
+  name: string;
+  room_type: number;
+  max_person: number;
+  is_blocked: boolean;
+  svg_element_id: string;
 }
 
 export interface ResourcePayload {

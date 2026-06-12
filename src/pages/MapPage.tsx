@@ -21,6 +21,9 @@ export default function MapPage() {
 
   const [pickedFloorId, setPickedFloorId] = useState<number | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
+  const [selectedInactiveRoomId, setSelectedInactiveRoomId] = useState<
+    string | null
+  >(null);
   const urlFloorId = toNumberOrNull(searchParams.get('floorId'));
 
   const floorsQuery = useQuery({
@@ -45,10 +48,15 @@ export default function MapPage() {
 
   const selectedRoom: RoomOnMap | null =
     mapQuery.data?.rooms.find((room) => room.id === selectedRoomId) ?? null;
+  const selectedInactiveRoom = selectedInactiveRoomId
+    ? { svg_element_id: selectedInactiveRoomId }
+    : null;
+  const isAdmin = user?.role === 'ADMIN';
 
   const handleFloorSelect = (floorId: number) => {
     setPickedFloorId(floorId);
     setSelectedRoomId(null);
+    setSelectedInactiveRoomId(null);
     const next = new URLSearchParams(searchParams);
     next.set('floorId', String(floorId));
     setSearchParams(next, { replace: true });
@@ -125,8 +133,17 @@ export default function MapPage() {
           {mapQuery.data && (
             <FloorMap
               data={mapQuery.data}
-              onRoomClick={(room) => setSelectedRoomId(room.id)}
+              onRoomClick={(room) => {
+                setSelectedInactiveRoomId(null);
+                setSelectedRoomId(room.id);
+              }}
+              onInactiveRoomClick={(svgElementId) => {
+                setSelectedRoomId(null);
+                setSelectedInactiveRoomId(svgElementId);
+              }}
               selectedRoomId={selectedRoomId}
+              selectedInactiveRoomId={selectedInactiveRoomId}
+              canActivateInactiveRooms={isAdmin}
             />
           )}
         </div>
@@ -134,10 +151,18 @@ export default function MapPage() {
 
       <RoomDetailsDrawer
         room={selectedRoom}
+        inactiveRoom={selectedInactiveRoom}
         floorId={mapQuery.data?.id ?? effectiveFloorId}
         floorNumber={mapQuery.data?.number ?? null}
         dormitoryName={mapQuery.data?.dormitory_name ?? null}
-        onClose={() => setSelectedRoomId(null)}
+        onClose={() => {
+          setSelectedRoomId(null);
+          setSelectedInactiveRoomId(null);
+        }}
+        onRoomCreated={(room) => {
+          setSelectedInactiveRoomId(null);
+          setSelectedRoomId(room.id);
+        }}
       />
     </div>
   );
