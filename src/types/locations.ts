@@ -42,6 +42,7 @@ export type RoomType =
   | 'KITCHEN'
   | 'LAUNDRY'
   | 'BATHROOM'
+  | 'TOILET'
   | 'STORAGE';
 
 export interface RoomOnMap {

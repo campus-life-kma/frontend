@@ -379,11 +379,12 @@ export default function UserProfilePage() {
 
   const evictUserMutation = useMutation({
     mutationFn: evictUser,
-    onSuccess: async () => {
+    onSuccess: () => {
       setEvictionDialogOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ['users'] });
-      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
-      navigate('/');
+      setActionError(null);
+      navigate('/', { replace: true });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+      void queryClient.invalidateQueries({ queryKey: ['user-profile'] });
     },
     onError: (error) => setActionError(normalizeError(error)),
   });

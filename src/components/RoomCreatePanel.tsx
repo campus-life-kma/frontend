@@ -67,7 +67,7 @@ export default function RoomCreatePanel({
       return createRoom(floorId, {
         name: name.trim(),
         room_type: Number(selectedRoomType),
-        max_person: Math.max(0, maxPerson),
+        max_person: maxPerson,
         is_blocked: isBlocked,
         svg_element_id: svgElementId,
       });

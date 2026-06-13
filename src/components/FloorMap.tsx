@@ -24,6 +24,7 @@ const ROOM_TYPE_COLOR: Record<string, string> = {
   KITCHEN: '#fff1cf',
   LAUNDRY: '#e9d6ff',
   BATHROOM: '#cfecf4',
+  TOILET: '#ccfbf1',
   STORAGE: '#e7d8b8',
 };
 const BLOCKED_COLOR = '#f3b9b9';
