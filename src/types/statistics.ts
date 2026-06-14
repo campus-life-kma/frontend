@@ -1,3 +1,4 @@
+/** Область дії статистичної вибірки (гуртожиток чи конкретний поверх). */
 export interface StatisticsScope {
   type: 'DORMITORY' | 'FLOOR';
   dormitory_name: string | null;
@@ -6,6 +7,7 @@ export interface StatisticsScope {
   role: string | null;
 }
 
+/** Статистика мешканців. */
 export interface ResidentsStatistics {
   total: number;
   activated: number;
@@ -13,6 +15,7 @@ export interface ResidentsStatistics {
   moderators: number;
 }
 
+/** Статистика кімнат. */
 export interface RoomsStatistics {
   total: number;
   living: number;
@@ -20,11 +23,13 @@ export interface RoomsStatistics {
   full: number;
 }
 
+/** Статистика загальних ресурсів. */
 export interface ResourcesStatistics {
   total: number;
   blocked: number;
 }
 
+/** Статистика найпопулярнішого ресурсу за кількістю бронювань. */
 export interface TopResourceStatistics {
   resource_id: number;
   resource_name: string;
@@ -33,6 +38,7 @@ export interface TopResourceStatistics {
   bookings_count: number;
 }
 
+/** Статистика бронювань. */
 export interface BookingsStatistics {
   active: number;
   today: number;
@@ -43,6 +49,7 @@ export interface BookingsStatistics {
   top_resources: TopResourceStatistics[];
 }
 
+/** Статистика активності на конкретному поверсі. */
 export interface FloorActivityStatistics {
   floor_id: number;
   floor_number: number;
@@ -52,6 +59,7 @@ export interface FloorActivityStatistics {
   active_presence_count: number;
 }
 
+/** Статистика соціальної активності. */
 export interface SocialStatistics {
   active_events: number;
   cancelled_events: number;
@@ -61,16 +69,19 @@ export interface SocialStatistics {
   floor_activity: FloorActivityStatistics[];
 }
 
+/** Статистика оголошень. */
 export interface AnnouncementsStatistics {
   active: number;
   pinned: number;
   total: number;
 }
 
+/** Статистика поточної присутності користувачів у кімнатах. */
 export interface PresenceStatistics {
   active: number;
 }
 
+/** Узагальнений звіт зі статистикою по всім розділам системи. */
 export interface StatisticsSummary {
   scope: StatisticsScope;
   residents: ResidentsStatistics;

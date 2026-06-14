@@ -231,6 +231,12 @@ function canCancelSocialItem(item: FeedItem): boolean {
   return item.status === 'ACTIVE';
 }
 
+/**
+ * Сторінка профілю (кабінету) користувача.
+ * Відображає персональну інформацію, поточне місцезнаходження (check-in),
+ * майбутні бронювання ресурсів, а також створювані користувачем соціальні події
+ * та запити речей. Для адміністраторів доступна функція виселення користувача.
+ */
 export default function UserProfilePage() {
   const { userId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -865,7 +871,7 @@ function ProfileHeader({
                 <p className="text-xs font-medium tracking-wide text-gray-400 uppercase">
                   Факультет
                 </p>
-                <p className="mt-1 font-medium break-words text-gray-800">
+                <p className="mt-1 font-medium wrap-break-word text-gray-800">
                   {profile.faculty_name ?? 'Не вказано'}
                 </p>
               </div>
@@ -1015,7 +1021,7 @@ function EditableProfileField({
       </div>
 
       {!editing ? (
-        <p className="mt-2 overflow-hidden text-sm leading-6 break-words whitespace-pre-wrap text-gray-700">
+        <p className="mt-2 overflow-hidden text-sm leading-6 wrap-break-word whitespace-pre-wrap text-gray-700">
           {value || placeholder}
         </p>
       ) : (
@@ -1026,7 +1032,7 @@ function EditableProfileField({
               onChange={(event) => setDraft(event.target.value)}
               className={
                 'min-h-24 w-full rounded-md border border-gray-300 px-3 py-2 ' +
-                'resize-y text-sm break-words outline-none focus:border-blue-500 focus:ring-1 ' +
+                'resize-y text-sm wrap-break-word outline-none focus:border-blue-500 focus:ring-1 ' +
                 'focus:ring-blue-500'
               }
             />
@@ -1244,7 +1250,9 @@ function EditableInfoLine({
       </div>
 
       {!editing ? (
-        <p className="mt-1 font-medium break-words text-gray-800">{value}</p>
+        <p className="mt-1 font-medium wrap-break-word text-gray-800">
+          {value}
+        </p>
       ) : (
         <div className="mt-2 space-y-2">
           <select

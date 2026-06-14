@@ -1,5 +1,6 @@
 import type { UserOnMap } from './locations';
 
+/** Модель соціальної події (Social Event). */
 export interface SocialEvent {
   type: 'event';
   id: number;
@@ -20,6 +21,7 @@ export interface SocialEvent {
   custom_location: string | null;
 }
 
+/** Модель запиту на обмін речами (Sharing Request). */
 export interface SocialSharingRequest {
   type: 'sharing_request';
   id: number;
@@ -30,8 +32,10 @@ export interface SocialSharingRequest {
   floor_id: number | null;
 }
 
+/** Об'єднаний тип для елементів соціальної стрічки. */
 export type FeedItem = SocialEvent | SocialSharingRequest;
 
+/** Відповідь сервера зі сторінкою стрічки активностей. */
 export interface FeedResponse {
   page: number;
   page_size: number;
@@ -39,6 +43,7 @@ export interface FeedResponse {
   results: FeedItem[];
 }
 
+/** Дані для створення нової соціальної події. */
 export interface SocialEventPayload {
   title: string;
   description: string;
@@ -52,10 +57,13 @@ export interface SocialEventPayload {
   custom_location?: string | null;
 }
 
+/** Дані для оновлення соціальної події. */
 export type SocialEventUpdatePayload = Partial<SocialEventPayload>;
 
+/** Дані для створення запиту на обмін речами. */
 export interface SharingRequestPayload {
   title: string;
 }
 
+/** Дані для оновлення запиту на обмін речами. */
 export type SharingRequestUpdatePayload = Partial<SharingRequestPayload>;

@@ -32,6 +32,12 @@ function percentage(part: number, total: number): number {
   return Math.round((part / total) * 100);
 }
 
+/**
+ * Сторінка статистики використання просторів гуртожитку.
+ * Доступна адміністраторам та модераторам.
+ * Відображає відсоток заповненості кімнат, популярні години відвідувань,
+ * статистику використання пралень/інших спільних ресурсів тощо.
+ */
 export default function StatisticsPage() {
   const user = useAuthStore((state) => state.user);
   const canSeeStatistics = user?.role === 'ADMIN' || user?.role === 'MODERATOR';

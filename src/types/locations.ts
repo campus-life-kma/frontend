@@ -1,8 +1,10 @@
+/** Елемент списку поверхів. */
 export interface FloorListItem {
   id: number;
   number: number;
 }
 
+/** Елемент списку кімнат. */
 export interface RoomListItem {
   id: number;
   name: string;
@@ -14,12 +16,14 @@ export interface RoomListItem {
   current_residents_count?: number;
 }
 
+/** Модель користувача на карті (для відображення аватарок). */
 export interface UserOnMap {
   id: string;
   display_name: string;
   photo: string | null;
 }
 
+/** Модель соціальної події для відображення на карті. */
 export interface EventOnMap {
   id: number;
   title: string;
@@ -27,6 +31,7 @@ export interface EventOnMap {
   participants_count: number;
 }
 
+/** Модель спільного ресурсу для відображення на карті. */
 export interface ResourceOnMap {
   id: number;
   name: string;
@@ -36,6 +41,7 @@ export interface ResourceOnMap {
   resource_icon?: string | null;
 }
 
+/** Підтримувані системою типи кімнат. */
 export type RoomType =
   | 'LIVING'
   | 'COMMON_AREA'
@@ -45,6 +51,7 @@ export type RoomType =
   | 'TOILET'
   | 'STORAGE';
 
+/** Повна модель кімнати для відображення на карті поверху. */
 export interface RoomOnMap {
   id: number;
   name: string;
@@ -57,10 +64,12 @@ export interface RoomOnMap {
   active_events: EventOnMap[];
 }
 
+/** Опис неактивної (ще не доданої) кімнати на карті. */
 export interface InactiveRoomOnMap {
   svg_element_id: string;
 }
 
+/** Повні дані карти поверху з кімнатами та активними подіями. */
 export interface FloorMapData {
   id: number;
   number: number;
@@ -71,6 +80,7 @@ export interface FloorMapData {
   active_floor_events: EventOnMap[];
 }
 
+/** Дані для оновлення параметрів кімнати. */
 export interface RoomUpdatePayload {
   name?: string;
   room_type?: number;
@@ -78,6 +88,7 @@ export interface RoomUpdatePayload {
   is_blocked?: boolean;
 }
 
+/** Дані для створення нової кімнати. */
 export interface RoomCreatePayload {
   name: string;
   room_type: number;
@@ -86,6 +97,7 @@ export interface RoomCreatePayload {
   svg_element_id: string;
 }
 
+/** Дані для створення або оновлення ресурсу. */
 export interface ResourcePayload {
   name: string;
   max_person: number;

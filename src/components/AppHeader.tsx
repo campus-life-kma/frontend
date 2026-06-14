@@ -3,15 +3,29 @@ import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 import ProfileMenu from './ProfileMenu';
 
+/** Типи активних пунктів навігаційного меню. */
 type ActiveNavItem = 'map' | 'feed' | 'statistics' | 'none';
 
+/**
+ * Властивості для компонента AppHeader.
+ */
 interface AppHeaderProps {
+  /** Поточний активний пункт меню навігації. */
   active?: ActiveNavItem;
+  /** Шлях до сторінки карти (за замовчуванням "/"). */
   mapPath?: string;
+  /** Шлях до соціальної стрічки (за замовчуванням "/feed"). */
   feedPath?: string;
+  /** Шлях до статистики (за замовчуванням "/statistics"). */
   statisticsPath?: string;
 }
 
+/**
+ * Компонент верхньої шапки додатка.
+ * Відображає назву додатка, панель навігації (залежно від прав користувача,
+ * наприклад, доступ до статистики мають тільки
+ * адміни/модератори) та меню профілю.
+ */
 export default function AppHeader({
   active = 'none',
   mapPath = '/',

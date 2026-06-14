@@ -21,7 +21,6 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
-      'multiline-comment-style': ['error', 'separate-lines'],
       'max-len': [
         'error',
         {

@@ -1,11 +1,22 @@
 import { resolveMediaUrl } from '../utils/media';
 import type { ResourceOnMap } from '../types/locations';
 
+/**
+ * Властивості для компоненка ResourceTypeIcon.
+ */
 interface ResourceTypeIconProps {
+  /** Об'єкт ресурсу на карті. */
   resource: ResourceOnMap;
+  /** Розмір іконки в пікселях (за замовчуванням 18px). */
   size?: number;
 }
 
+/**
+ * Візуальний компонент іконки типу ресурсу.
+ * Відображає завантажене зображення іконки ресурсу, або першу літеру назви
+ * ресурсу, якщо іконка не вказана. Якщо ресурс заблокований,
+ * іконка відображається напівпрозорою.
+ */
 export default function ResourceTypeIcon({
   resource,
   size = 18,

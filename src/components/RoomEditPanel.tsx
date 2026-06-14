@@ -34,12 +34,23 @@ const RESOURCE_TYPE_LABEL: Record<string, string> = {
   OTHER: 'Інше',
 };
 
+/**
+ * Властивості для компонента RoomEditPanel.
+ */
 interface RoomEditPanelProps {
+  /** Об'єкт кімнати, яку необхідно відредагувати. */
   room: RoomOnMap;
+  /** ID поверху, на якому знаходиться кімната. */
   floorId?: number | null;
+  /** Скасування процесу редагування. */
   onCancel: () => void;
 }
 
+/**
+ * Панель редагування властивостей кімнати та її внутрішніх ресурсів.
+ * Доступна адміністраторам. Дозволяє змінювати назву, тип та місткість кімнати,
+ * а також створювати, редагувати або видаляти ресурси цієї кімнати.
+ */
 export default function RoomEditPanel({
   room,
   floorId,
@@ -76,7 +87,7 @@ export default function RoomEditPanel({
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      // Find roomType ID based on string
+      // Знаходимо ідентифікатор типу кімнати за рядком
       const selectedType = roomTypes?.find((rt) => rt.type === roomType);
       await updateRoom(room.id, {
         name: name.trim(),
