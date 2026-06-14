@@ -79,7 +79,7 @@ export default function RoomEditPanel({
       // Find roomType ID based on string
       const selectedType = roomTypes?.find((rt) => rt.type === roomType);
       await updateRoom(room.id, {
-        name,
+        name: name.trim(),
         room_type: selectedType ? selectedType.id : undefined,
         max_person: maxPerson,
       });
@@ -107,7 +107,7 @@ export default function RoomEditPanel({
     mutationFn: async () => {
       if (!newResourceType) throw new Error('Оберіть тип ресурсу');
       return createResource(room.id, {
-        name: newResourceName,
+        name: newResourceName.trim(),
         resource_type: Number(newResourceType),
         max_person: newResourceMaxPerson,
         is_blocked: false,
@@ -133,7 +133,7 @@ export default function RoomEditPanel({
       return updateResource(editingResourceId, {
         name: editResourceName.trim(),
         resource_type: Number(editResourceType),
-        max_person: Math.max(1, editResourceMaxPerson),
+        max_person: editResourceMaxPerson,
         is_blocked: editResourceBlocked,
       });
     },
@@ -292,6 +292,7 @@ export default function RoomEditPanel({
                       <input
                         type="number"
                         min={1}
+                        max={100}
                         placeholder="Місткість"
                         className="w-full rounded border px-2 py-1 text-sm outline-none focus:border-blue-500"
                         value={editResourceMaxPerson}
@@ -324,7 +325,18 @@ export default function RoomEditPanel({
                             'rounded bg-blue-600 px-3 py-1 text-xs text-white ' +
                             'hover:bg-blue-700 disabled:opacity-50'
                           }
-                          onClick={() => updateResourceMutation.mutate()}
+                          onClick={() => {
+                            if (
+                              editResourceMaxPerson < 1 ||
+                              editResourceMaxPerson > 100
+                            ) {
+                              setErrorMsg(
+                                'Місткість ресурсу повинна бути від 1 до 100.'
+                              );
+                              return;
+                            }
+                            updateResourceMutation.mutate();
+                          }}
                           disabled={
                             updateResourceMutation.isPending ||
                             !editResourceName.trim() ||
@@ -364,9 +376,16 @@ export default function RoomEditPanel({
                         <button
                           type="button"
                           className="text-gray-400 hover:text-red-500"
-                          onClick={() =>
-                            deleteResourceMutation.mutate(resource.id)
-                          }
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                'Ви впевнені, що хочете видалити цей ресурс? ' +
+                                  'Це призведе до скасування всіх активних бронювань.'
+                              )
+                            ) {
+                              deleteResourceMutation.mutate(resource.id);
+                            }
+                          }}
                           disabled={deleteResourceMutation.isPending}
                         >
                           Видалити
@@ -404,6 +423,7 @@ export default function RoomEditPanel({
                 <input
                   type="number"
                   min={1}
+                  max={100}
                   placeholder="Місткість"
                   className="w-full rounded border px-2 py-1 text-sm outline-none focus:border-blue-500"
                   value={newResourceMaxPerson}
@@ -422,8 +442,19 @@ export default function RoomEditPanel({
                   <button
                     type="button"
                     className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
-                    onClick={() => createResourceMutation.mutate()}
-                    disabled={!newResourceName || !newResourceType}
+                    onClick={() => {
+                      if (
+                        newResourceMaxPerson < 1 ||
+                        newResourceMaxPerson > 100
+                      ) {
+                        setErrorMsg(
+                          'Місткість ресурсу повинна бути від 1 до 100.'
+                        );
+                        return;
+                      }
+                      createResourceMutation.mutate();
+                    }}
+                    disabled={!newResourceName.trim() || !newResourceType}
                   >
                     Зберегти
                   </button>
@@ -457,7 +488,7 @@ export default function RoomEditPanel({
           type="button"
           onClick={() => updateMutation.mutate()}
           className="flex-1 rounded-md bg-blue-600 py-2 text-center text-white hover:bg-blue-700 disabled:opacity-50"
-          disabled={updateMutation.isPending}
+          disabled={updateMutation.isPending || !name.trim()}
         >
           {updateMutation.isPending ? 'Збереження...' : 'Зберегти'}
         </button>

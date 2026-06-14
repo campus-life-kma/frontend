@@ -548,10 +548,20 @@ export default function UserProfilePage() {
           onClose={closeDetailsModal}
           onJoin={(eventId) => joinMutation.mutate(eventId)}
           onLeave={(eventId) => leaveMutation.mutate(eventId)}
-          onDeleteEvent={(eventId) => deleteEventMutation.mutate(eventId)}
-          onDeleteSharing={(requestId) =>
-            deleteSharingMutation.mutate(requestId)
-          }
+          onDeleteEvent={(eventId) => {
+            if (window.confirm('Ви впевнені, що хочете видалити цю подію?')) {
+              deleteEventMutation.mutate(eventId);
+            }
+          }}
+          onDeleteSharing={(requestId) => {
+            if (
+              window.confirm(
+                'Ви впевнені, що хочете видалити цей запит на взаємодопомогу?'
+              )
+            ) {
+              deleteSharingMutation.mutate(requestId);
+            }
+          }}
         />
       )}
 

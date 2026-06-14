@@ -20,7 +20,9 @@ import type {
 type CreateType = 'event' | 'sharing';
 
 function toApiDateTime(value: string): string {
-  return new Date(value).toISOString();
+  const parsed = new Date(value);
+  if (isNaN(parsed.getTime())) return new Date().toISOString();
+  return parsed.toISOString();
 }
 
 function toLocalDateTimeInput(value: string): string {
@@ -274,6 +276,10 @@ export default function SocialCreatePage() {
     }
     if (!eventForm.start_time || !eventForm.end_time) {
       setError('Вкажіть час початку та завершення події.');
+      return;
+    }
+    if (new Date(eventForm.start_time) >= new Date(eventForm.end_time)) {
+      setError('Час завершення події має бути пізнішим за час початку.');
       return;
     }
     if (

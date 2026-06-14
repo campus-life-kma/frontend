@@ -365,7 +365,7 @@ export default function ResourceBookingPage() {
       });
     }
 
-    return assignLanes(scheduled, resource?.max_person ?? 1);
+    return assignLanes(scheduled, Math.min(100, resource?.max_person ?? 1));
   }, [myBookingsById, resource?.max_person, scheduleQuery.data]);
 
   const bookingsByDay = useMemo(() => {
@@ -758,7 +758,7 @@ function TimelineDay({
     lane: number;
     minute: number;
   } | null>(null);
-  const laneCount = Math.max(1, capacity);
+  const laneCount = Math.min(100, Math.max(1, capacity));
   const hours = Array.from({ length: 24 }, (_, hour) => hour).filter(
     (hour) => hour * 60 >= visibleStartMinute
   );
