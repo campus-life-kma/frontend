@@ -10,6 +10,7 @@ import UserAvatar from './UserAvatar';
 import ResourceTypeIcon from './ResourceTypeIcon';
 import { Link } from 'react-router-dom';
 import ConfirmDialog from './UI/ConfirmDialog';
+import AddResidentModal from './AddResidentModal';
 
 interface RoomDetailsPanelProps {
   room: RoomOnMap | null;
@@ -48,6 +49,7 @@ export default function RoomDetailsPanel({
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [addResidentModalOpen, setAddResidentModalOpen] = useState(false);
 
   const presenceQuery = useQuery({
     queryKey: ['presence-me'],
@@ -149,9 +151,21 @@ export default function RoomDetailsPanel({
       </header>
 
       <section>
-        <h3 className="mb-2 font-medium text-gray-700">
-          Зараз тут ({room.current_users.length})
-        </h3>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="font-medium text-gray-700">
+            Зараз тут ({room.current_users.length})
+          </h3>
+          {user?.role === 'ADMIN' &&
+            room.room_type === 'LIVING' &&
+            room.current_users.length < room.max_person && (
+              <button
+                onClick={() => setAddResidentModalOpen(true)}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800"
+              >
+                + Додати мешканця
+              </button>
+            )}
+        </div>
         {room.current_users.length === 0 ? (
           <p className="text-gray-400">Порожньо</p>
         ) : (
@@ -349,6 +363,13 @@ export default function RoomDetailsPanel({
           </p>
         )}
       </footer>
+
+      {addResidentModalOpen && (
+        <AddResidentModal
+          roomId={room.id}
+          onClose={() => setAddResidentModalOpen(false)}
+        />
+      )}
 
       {confirmDeleteOpen && (
         <ConfirmDialog

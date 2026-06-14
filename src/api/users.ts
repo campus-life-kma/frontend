@@ -45,3 +45,17 @@ export async function updateUserProfile(
 export async function evictUser(userId: string): Promise<void> {
   await api.delete(`/users/${userId}/`);
 }
+
+export interface UserCreatePayload {
+  email: string;
+  position: string;
+  role: number;
+  room: number;
+}
+
+export async function createUser(
+  payload: UserCreatePayload
+): Promise<UserProfile> {
+  const { data } = await api.post<UserProfile>('/users/', payload);
+  return data;
+}
