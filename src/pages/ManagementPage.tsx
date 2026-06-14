@@ -47,41 +47,69 @@ function DirectoryTab() {
   const [positionFilter, setPositionFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [floorFilter, setFloorFilter] = useState<string>('');
-  
+
   const { data: floors = [] } = useQuery({
     queryKey: ['floors'],
     queryFn: () => getAllFloors(),
     enabled: user?.role === 'ADMIN',
   });
-  
+
   const { data: users = [], isLoading } = useQuery({
-    queryKey: ['management-users', search, roleFilter, positionFilter, activeFilter, floorFilter],
-    queryFn: () => getAnnouncementRecipients({ 
-      q: search,
-      role: roleFilter || undefined,
-      position: positionFilter || undefined,
-      is_active: activeFilter === 'all' ? 'all' : activeFilter,
-      floor_id: floorFilter || undefined,
-    }),
+    queryKey: [
+      'management-users',
+      search,
+      roleFilter,
+      positionFilter,
+      activeFilter,
+      floorFilter,
+    ],
+    queryFn: () =>
+      getAnnouncementRecipients({
+        q: search,
+        role: roleFilter || undefined,
+        position: positionFilter || undefined,
+        is_active: activeFilter === 'all' ? 'all' : activeFilter,
+        floor_id: floorFilter || undefined,
+      }),
   });
 
   const exportToCsv = () => {
     if (users.length === 0) return;
-    const headers = ['ПІБ', 'Email', 'Роль', 'Кімната', 'Поверх', 'Факультет', 'Спеціальність', 'Посада', 'Активований'];
-    const rows = users.map(u => [
-      u.display_name,
-      u.email,
-      u.role_name || '',
-      u.room_name || '',
-      u.floor_number?.toString() || '',
-      u.faculty_name || '',
-      u.major_name || '',
-      u.position === 'TEACHER' ? 'Викладач' : u.position === 'EMPLOYEE' ? 'Співробітник' : 'Студент',
-      u.is_activated ? 'Так' : 'Ні'
-    ].map(v => '"' + v + '"').join(','));
-    
+    const headers = [
+      'ПІБ',
+      'Email',
+      'Роль',
+      'Кімната',
+      'Поверх',
+      'Факультет',
+      'Спеціальність',
+      'Посада',
+      'Активований',
+    ];
+    const rows = users.map((u) =>
+      [
+        u.display_name,
+        u.email,
+        u.role_name || '',
+        u.room_name || '',
+        u.floor_number?.toString() || '',
+        u.faculty_name || '',
+        u.major_name || '',
+        u.position === 'TEACHER'
+          ? 'Викладач'
+          : u.position === 'EMPLOYEE'
+            ? 'Співробітник'
+            : 'Студент',
+        u.is_activated ? 'Так' : 'Ні',
+      ]
+        .map((v) => '"' + v + '"')
+        .join(',')
+    );
+
     const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csvContent], {
+      type: 'text/csv;charset=utf-8;',
+    });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.setAttribute('download', 'directory.csv');
@@ -92,34 +120,37 @@ function DirectoryTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col bg-white p-4 rounded-lg border border-gray-200 shadow-sm gap-4">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+      <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Пошук мешканців..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              // eslint-disable-next-line max-len
+              className={`w-full rounded-md border border-gray-300 py-2 pr-4 pl-9 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none`}
             />
           </div>
           <button
             onClick={exportToCsv}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md text-sm font-medium transition-colors"
+            // eslint-disable-next-line max-len
+            className={`flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100`}
           >
             <Download className="h-4 w-4" />
             Експорт у CSV
           </button>
         </div>
-        
-        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-gray-100">
-          <Filter className="h-4 w-4 text-gray-400 shrink-0 hidden sm:block" />
-          
-          <select 
-            className="text-sm border border-gray-300 bg-white rounded-md py-1.5 pl-3 pr-8 focus:ring-blue-500 focus:border-blue-500"
+
+        <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3">
+          <Filter className="hidden h-4 w-4 shrink-0 text-gray-400 sm:block" />
+
+          <select
+            // eslint-disable-next-line max-len
+            className={`rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3 text-sm focus:border-blue-500 focus:ring-blue-500`}
             value={positionFilter}
-            onChange={e => setPositionFilter(e.target.value)}
+            onChange={(e) => setPositionFilter(e.target.value)}
           >
             <option value="">Всі посади</option>
             <option value="STUDENT">Студент</option>
@@ -127,10 +158,11 @@ function DirectoryTab() {
             <option value="EMPLOYEE">Співробітник</option>
           </select>
 
-          <select 
-            className="text-sm border border-gray-300 bg-white rounded-md py-1.5 pl-3 pr-8 focus:ring-blue-500 focus:border-blue-500"
+          <select
+            // eslint-disable-next-line max-len
+            className={`rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3 text-sm focus:border-blue-500 focus:ring-blue-500`}
             value={activeFilter}
-            onChange={e => setActiveFilter(e.target.value)}
+            onChange={(e) => setActiveFilter(e.target.value)}
           >
             <option value="all">Всі статуси</option>
             <option value="true">Активовані</option>
@@ -139,10 +171,11 @@ function DirectoryTab() {
 
           {user?.role === 'ADMIN' && (
             <>
-              <select 
-                className="text-sm border border-gray-300 bg-white rounded-md py-1.5 pl-3 pr-8 focus:ring-blue-500 focus:border-blue-500"
+              <select
+                // eslint-disable-next-line max-len
+                className={`rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3 text-sm focus:border-blue-500 focus:ring-blue-500`}
                 value={roleFilter}
-                onChange={e => setRoleFilter(e.target.value)}
+                onChange={(e) => setRoleFilter(e.target.value)}
               >
                 <option value="">Всі ролі</option>
                 <option value="ADMIN">Адміністратор</option>
@@ -150,14 +183,17 @@ function DirectoryTab() {
                 <option value="RESIDENT">Мешканець</option>
               </select>
 
-              <select 
-                className="text-sm border border-gray-300 bg-white rounded-md py-1.5 pl-3 pr-8 focus:ring-blue-500 focus:border-blue-500"
+              <select
+                // eslint-disable-next-line max-len
+                className={`rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3 text-sm focus:border-blue-500 focus:ring-blue-500`}
                 value={floorFilter}
-                onChange={e => setFloorFilter(e.target.value)}
+                onChange={(e) => setFloorFilter(e.target.value)}
               >
                 <option value="">Всі поверхи</option>
-                {floors.map(f => (
-                  <option key={f.id} value={f.id}>{f.number} поверх</option>
+                {floors.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.number} поверх
+                  </option>
                 ))}
               </select>
             </>
@@ -165,42 +201,62 @@ function DirectoryTab() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Користувач</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Роль</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Кімната</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Факультет</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Дії</th>
+                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Користувач
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Роль
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Кімната
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Факультет
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Дії
+                </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 bg-white">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-500">
+                  <td
+                    colSpan={5}
+                    className="px-6 py-10 text-center text-sm text-gray-500"
+                  >
                     Завантаження...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-500">
+                  <td
+                    colSpan={5}
+                    className="px-6 py-10 text-center text-sm text-gray-500"
+                  >
                     Користувачів не знайдено
                   </td>
                 </tr>
               ) : (
                 users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={u.id} className="transition-colors hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <UserAvatar photo={u.photo} name={u.display_name} size={32} />
+                        <UserAvatar
+                          photo={u.photo}
+                          name={u.display_name}
+                          size={32}
+                        />
                         <div>
-                          <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
                             {u.display_name}
                             {!u.is_activated && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
                                 НЕАКТИВНИЙ
                               </span>
                             )}
@@ -210,27 +266,34 @@ function DirectoryTab() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col gap-1 items-start">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 w-fit">
+                      <div className="flex flex-col items-start gap-1">
+                        <span
+                          // eslint-disable-next-line max-len
+                          className={`inline-flex w-fit rounded-full bg-blue-100 px-2 text-xs leading-5 font-semibold text-blue-800`}
+                        >
                           {formatRole(u.role_name)}
                         </span>
-                        {u.position !== "STUDENT" && (
-                           <span className="text-xs text-gray-500 ml-1">
-                             {u.position === "TEACHER" ? "Викладач" : "Співробітник"}
-                           </span>
+                        {u.position !== 'STUDENT' && (
+                          <span className="ml-1 text-xs text-gray-500">
+                            {u.position === 'TEACHER'
+                              ? 'Викладач'
+                              : 'Співробітник'}
+                          </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {u.room_name ? `${u.room_name} (${u.floor_number} пов.)` : '-'}
+                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
+                      {u.room_name
+                        ? `${u.room_name} (${u.floor_number} пов.)`
+                        : '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
                       {u.faculty_name || '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link 
+                    <td className="px-6 py-4 text-right text-sm font-medium whitespace-nowrap">
+                      <Link
                         to={`/profile/${u.id}`}
-                        className="text-gray-400 hover:text-blue-600 transition-colors inline-block p-1"
+                        className="inline-block p-1 text-gray-400 transition-colors hover:text-blue-600"
                         title="Переглянути профіль"
                       >
                         <Settings className="h-4 w-4" />
@@ -247,10 +310,15 @@ function DirectoryTab() {
   );
 }
 
-
 function StatisticsTab({ data }: { data: StatisticsSummary }) {
-  const residentActivation = percentage(data.residents.activated, data.residents.total);
-  const blockedResources = percentage(data.resources.blocked, data.resources.total);
+  const residentActivation = percentage(
+    data.residents.activated,
+    data.residents.total
+  );
+  const blockedResources = percentage(
+    data.resources.blocked,
+    data.resources.total
+  );
   const fullRooms = percentage(data.rooms.full, data.rooms.living);
 
   const mainMetrics = [
@@ -347,8 +415,14 @@ function StatisticsTab({ data }: { data: StatisticsSummary }) {
               ['Активні івенти', data.social.active_events],
               ['Скасовані івенти', data.social.cancelled_events],
               ['Активні запити на шеринг', data.social.active_sharing_requests],
-              ['Виконані запити на шеринг', data.social.completed_sharing_requests],
-              ['Скасовані запити на шеринг', data.social.cancelled_sharing_requests],
+              [
+                'Виконані запити на шеринг',
+                data.social.completed_sharing_requests,
+              ],
+              [
+                'Скасовані запити на шеринг',
+                data.social.cancelled_sharing_requests,
+              ],
             ]}
           />
         </Panel>
@@ -367,24 +441,42 @@ function StatisticsTab({ data }: { data: StatisticsSummary }) {
       {/* Moderator Actions for Admins */}
       {data.moderator_actions && data.moderator_actions.length > 0 && (
         <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-950 mb-4">Ефективність модераторів (Блокування)</h2>
+          <h2 className="mb-4 text-base font-semibold text-gray-950">
+            Ефективність модераторів (Блокування)
+          </h2>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium text-gray-500">Модератор</th>
-                  <th className="px-4 py-2 text-right font-medium text-gray-500">Заблоковано Івентів</th>
-                  <th className="px-4 py-2 text-right font-medium text-gray-500">Заблоковано Шерингів</th>
-                  <th className="px-4 py-2 text-right font-medium text-gray-500">Заблоковано Бронювань</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">
+                    Модератор
+                  </th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-500">
+                    Заблоковано Івентів
+                  </th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-500">
+                    Заблоковано Шерингів
+                  </th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-500">
+                    Заблоковано Бронювань
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {data.moderator_actions.map(mod => (
+                {data.moderator_actions.map((mod) => (
                   <tr key={mod.moderator_id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 font-medium text-gray-900">{mod.moderator_name}</td>
-                    <td className="px-4 py-2 text-right text-red-600 font-semibold">{mod.cancelled_events}</td>
-                    <td className="px-4 py-2 text-right text-orange-600 font-semibold">{mod.cancelled_sharings}</td>
-                    <td className="px-4 py-2 text-right text-pink-600 font-semibold">{mod.cancelled_bookings}</td>
+                    <td className="px-4 py-2 font-medium text-gray-900">
+                      {mod.moderator_name}
+                    </td>
+                    <td className="px-4 py-2 text-right font-semibold text-red-600">
+                      {mod.cancelled_events}
+                    </td>
+                    <td className="px-4 py-2 text-right font-semibold text-orange-600">
+                      {mod.cancelled_sharings}
+                    </td>
+                    <td className="px-4 py-2 text-right font-semibold text-pink-600">
+                      {mod.cancelled_bookings}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -414,7 +506,9 @@ export default function ManagementPage() {
   const canSeeStatistics = user?.role === 'ADMIN' || user?.role === 'MODERATOR';
   const [searchParams] = useSearchParams();
   const mapFloorId = searchParams.get('mapFloorId');
-  const [activeTab, setActiveTab] = useState<'directory' | 'statistics'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'statistics'>(
+    'directory'
+  );
 
   const mapPath = mapFloorId ? `/?floorId=${mapFloorId}` : '/';
   const feedPath = mapFloorId ? `/feed?mapFloorId=${mapFloorId}` : '/feed';
@@ -451,10 +545,10 @@ export default function ManagementPage() {
             <div className="flex border-b border-gray-200">
               <button
                 onClick={() => setActiveTab('directory')}
-                className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
                   activeTab === 'directory'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >
                 <Users className="h-4 w-4" />
@@ -462,10 +556,10 @@ export default function ManagementPage() {
               </button>
               <button
                 onClick={() => setActiveTab('statistics')}
-                className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
                   activeTab === 'statistics'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >
                 <BarChart2 className="h-4 w-4" />
@@ -476,17 +570,21 @@ export default function ManagementPage() {
             {/* Tab Content */}
             <div className="mt-2">
               {activeTab === 'directory' && <DirectoryTab />}
-              
+
               {activeTab === 'statistics' && (
                 <>
-                  {statisticsQuery.isLoading && <StatePanel title="Завантажуємо статистику…" />}
+                  {statisticsQuery.isLoading && (
+                    <StatePanel title="Завантажуємо статистику…" />
+                  )}
                   {statisticsQuery.isError && (
                     <StatePanel
                       title="Не вдалося завантажити статистику"
                       text="Оновіть сторінку або спробуйте ще раз пізніше."
                     />
                   )}
-                  {statisticsQuery.data && <StatisticsTab data={statisticsQuery.data} />}
+                  {statisticsQuery.data && (
+                    <StatisticsTab data={statisticsQuery.data} />
+                  )}
                 </>
               )}
             </div>

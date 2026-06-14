@@ -80,7 +80,11 @@ export default function AddResidentModal({
       'SPECIFIC_USERS',
     ],
     queryFn: () =>
-      getAnnouncementRecipients({ q: searchQuery, ordering: 'display_name', is_active: 'all' }),
+      getAnnouncementRecipients({
+        q: searchQuery,
+        ordering: 'display_name',
+        is_active: 'all',
+      }),
     enabled: activeTab === 'existing',
   });
 
@@ -207,8 +211,9 @@ export default function AddResidentModal({
                   className="w-full rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
                 />
 
-                <div className="flex min-h-[300px] max-h-[300px] flex-col gap-2 overflow-y-auto pr-1">
-                  {existingUsersQuery.isLoading || existingUsersQuery.isFetching ? (
+                <div className="flex max-h-[300px] min-h-[300px] flex-col gap-2 overflow-y-auto pr-1">
+                  {existingUsersQuery.isLoading ||
+                  existingUsersQuery.isFetching ? (
                     <div className="flex h-full items-center justify-center">
                       <p className="text-gray-500">Шукаємо...</p>
                     </div>
