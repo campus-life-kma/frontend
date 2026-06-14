@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import type { ResourceOnMap, RoomOnMap } from '../types/locations';
 import {
   updateRoom,
@@ -87,8 +88,7 @@ export default function RoomEditPanel({
       queryClient.invalidateQueries({ queryKey: ['floor-map', floorId] });
       onCancel();
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => {
+    onError: (err: AxiosError<{ detail?: string }>) => {
       setErrorMsg(err.response?.data?.detail || 'Помилка при збереженні');
     },
   });
@@ -98,8 +98,7 @@ export default function RoomEditPanel({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['floor-map', floorId] });
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => {
+    onError: (err: AxiosError<{ detail?: string }>) => {
       setErrorMsg(err.response?.data?.detail || 'Помилка видалення ресурсу');
     },
   });
@@ -121,8 +120,7 @@ export default function RoomEditPanel({
       setNewResourceType('');
       setNewResourceMaxPerson(1);
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => {
+    onError: (err: AxiosError<{ detail?: string }>) => {
       setErrorMsg(err.response?.data?.detail || 'Помилка створення ресурсу');
     },
   });
@@ -143,8 +141,7 @@ export default function RoomEditPanel({
       queryClient.invalidateQueries({ queryKey: ['floor-map', floorId] });
       stopEditingResource();
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => {
+    onError: (err: AxiosError<{ detail?: string }>) => {
       setErrorMsg(err.response?.data?.detail || 'Помилка редагування ресурсу');
     },
   });
