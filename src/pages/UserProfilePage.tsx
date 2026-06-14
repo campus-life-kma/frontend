@@ -382,7 +382,11 @@ export default function UserProfilePage() {
     onSuccess: () => {
       setEvictionDialogOpen(false);
       setActionError(null);
-      navigate('/', { replace: true });
+      if (profileQuery.data?.floor_id) {
+        navigate(`/?floorId=${profileQuery.data.floor_id}`, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
       void queryClient.invalidateQueries({ queryKey: ['users'] });
       void queryClient.invalidateQueries({ queryKey: ['user-profile'] });
     },
