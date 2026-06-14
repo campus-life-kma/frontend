@@ -12,11 +12,19 @@ import { Link } from 'react-router-dom';
 import ConfirmDialog from './UI/ConfirmDialog';
 import AddResidentModal from './AddResidentModal';
 
+/**
+ * Властивості для компонента RoomDetailsPanel.
+ */
 interface RoomDetailsPanelProps {
+  /** Дані кімнати на карті або null, якщо жодна кімната не вибрана. */
   room: RoomOnMap | null;
+  /** Ідентифікатор поверху, до якого належить кімната. */
   floorId?: number | null;
+  /** Номер поверху. */
   floorNumber?: number | null;
+  /** Назва гуртожитку. */
   dormitoryName?: string | null;
+  /** Зворотний виклик (callback) після успішного видалення кімнати. */
   onRoomDeleted?: () => void;
 }
 
@@ -30,6 +38,9 @@ const ROOM_TYPE_LABEL: Record<string, string> = {
   STORAGE: 'Склад',
 };
 
+/**
+ * Допоміжна функція для отримання повідомлення про помилку з AxiosError.
+ */
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const detail = (error.response?.data as { detail?: string } | undefined)
@@ -39,6 +50,14 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Компонент бічної панелі з детальною інформацією про вибрану кімнату.
+ * Відображає назву, статус кімнати, список присутніх людей, активні події,
+ * перелік ресурсів (з посиланнями на бронювання).
+ * Надає модератору кнопки для блокування/розблокування або видалення кімнати,
+ * а звичайному користувачу — можливість відмітитись у кімнаті (check-in)
+ * або піти (go-home).
+ */
 export default function RoomDetailsPanel({
   room,
   floorId,

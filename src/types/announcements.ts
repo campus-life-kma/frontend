@@ -1,5 +1,6 @@
 import type { UserOnMap } from './locations';
 
+/** Опис моделі оголошення. */
 export interface Announcement {
   id: number;
   title: string;
@@ -14,12 +15,14 @@ export interface Announcement {
   is_pinned: boolean;
 }
 
+/** Типи цільової аудиторії для показу оголошення. */
 export type AnnouncementTargetType =
   | 'GLOBAL'
   | 'FLOOR'
   | 'ROOM'
   | 'SPECIFIC_USERS';
 
+/** Дані для створення або оновлення оголошення. */
 export interface AnnouncementPayload {
   title: string;
   message: string;
@@ -31,6 +34,7 @@ export interface AnnouncementPayload {
   is_pinned?: boolean;
 }
 
+/** Опис одержувача оголошення. */
 export interface AnnouncementRecipient {
   id: string;
   display_name: string;
@@ -48,6 +52,7 @@ export interface AnnouncementRecipient {
   position: string | null;
 }
 
+/** Фільтри для вибору одержувачів оголошення. */
 export interface AnnouncementRecipientFilters {
   q?: string;
   ordering?: string;

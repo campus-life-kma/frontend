@@ -5,11 +5,23 @@ import type {
   UserSocialActivity,
 } from '../types/users';
 
+/**
+ * Отримує профіль конкретного користувача за його ідентифікатором.
+ *
+ * @param userId - Унікальний ідентифікатор користувача.
+ * @returns Об'єкт профілю користувача.
+ */
 export async function getUserProfile(userId: string): Promise<UserProfile> {
   const { data } = await api.get<UserProfile>(`/users/${userId}/`);
   return data;
 }
 
+/**
+ * Отримує історію соціальної активності користувача (створені події, запити).
+ *
+ * @param userId - Унікальний ідентифікатор користувача.
+ * @returns Об'єкт із соціальною активністю користувача.
+ */
 export async function getUserSocialActivity(
   userId: string
 ): Promise<UserSocialActivity> {
@@ -19,6 +31,15 @@ export async function getUserSocialActivity(
   return data;
 }
 
+/**
+ * Оновлює дані профілю користувача.
+ * Підтримує передачу фотографії через FormData,
+ * якщо вона присутня в payload.
+ *
+ * @param userId - Унікальний ідентифікатор користувача.
+ * @param payload - Дані для оновлення профілю (включаючи файл фотографії).
+ * @returns Оновлений профіль користувача.
+ */
 export async function updateUserProfile(
   userId: string,
   payload: UserProfileUpdatePayload
@@ -42,6 +63,11 @@ export async function updateUserProfile(
   return data;
 }
 
+/**
+ * Виселяє користувача з гуртожитку (видаляє його профіль з системи).
+ *
+ * @param userId - Унікальний ідентифікатор користувача.
+ */
 export async function evictUser(userId: string): Promise<void> {
   await api.delete(`/users/${userId}/`);
 }

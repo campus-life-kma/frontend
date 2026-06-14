@@ -7,8 +7,10 @@ import './index.css';
 import App from './App.tsx';
 import { msalInstance } from './api/msal-config';
 
+/** Глобальний клієнт для керування запитами React Query. */
 const queryClient = new QueryClient();
 
+// Ініціалізуємо екземпляр MSAL для автентифікації Microsoft
 await msalInstance.initialize();
 
 createRoot(document.getElementById('root')!).render(

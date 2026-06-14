@@ -22,6 +22,12 @@ export async function getFloors(
   return data;
 }
 
+/**
+ * Отримує повні дані карти поверху, включаючи SVG-файл та перелік кімнат.
+ *
+ * @param floorId - Унікальний ідентифікатор поверху.
+ * @returns Дані карти поверху.
+ */
 export async function getFloorMapData(
   floorId: string | number
 ): Promise<FloorMapData> {
@@ -29,11 +35,22 @@ export async function getFloorMapData(
   return data;
 }
 
+/**
+ * Отримує загальний список усіх кімнат.
+ *
+ * @returns Список кімнат.
+ */
 export async function getRooms(): Promise<RoomListItem[]> {
   const { data } = await api.get<RoomListItem[]>('/rooms/');
   return data;
 }
 
+/**
+ * Оновлює властивості кімнати.
+ *
+ * @param roomId - Унікальний ідентифікатор кімнати.
+ * @param payload - Дані для оновлення кімнати.
+ */
 export async function updateRoom(
   roomId: string | number,
   payload: RoomUpdatePayload
@@ -41,10 +58,22 @@ export async function updateRoom(
   await api.patch(`/rooms/${roomId}/`, payload);
 }
 
+/**
+ * Видаляє кімнату із системи.
+ *
+ * @param roomId - Унікальний ідентифікатор кімнати.
+ */
 export async function deleteRoom(roomId: string | number): Promise<void> {
   await api.delete(`/rooms/${roomId}/`);
 }
 
+/**
+ * Створює нову кімнату на певному поверсі.
+ *
+ * @param floorId - Унікальний ідентифікатор поверху.
+ * @param payload - Дані для створення кімнати.
+ * @returns Створена кімната з координатами на карті.
+ */
 export async function createRoom(
   floorId: string | number,
   payload: RoomCreatePayload
@@ -56,6 +85,13 @@ export async function createRoom(
   return data;
 }
 
+/**
+ * Додає новий ресурс (інвентар) у кімнату.
+ *
+ * @param roomId - Унікальний ідентифікатор кімнати.
+ * @param payload - Дані для створення ресурсу.
+ * @returns Створений ресурс.
+ */
 export async function createResource(
   roomId: string | number,
   payload: ResourcePayload
@@ -67,6 +103,13 @@ export async function createResource(
   return data;
 }
 
+/**
+ * Оновлює параметри існуючого ресурсу.
+ *
+ * @param resourceId - Унікальний ідентифікатор ресурсу.
+ * @param payload - Часткові дані для оновлення.
+ * @returns Оновлений ресурс.
+ */
 export async function updateResource(
   resourceId: string | number,
   payload: Partial<ResourcePayload>
@@ -78,6 +121,11 @@ export async function updateResource(
   return data;
 }
 
+/**
+ * Видаляє ресурс із системи.
+ *
+ * @param resourceId - Унікальний ідентифікатор ресурсу.
+ */
 export async function deleteResource(
   resourceId: string | number
 ): Promise<void> {

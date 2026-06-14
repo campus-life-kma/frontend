@@ -1,11 +1,21 @@
 import type { FloorListItem } from '../types/locations';
 
+/**
+ * Властивості компонента FloorRail.
+ */
 interface FloorRailProps {
+  /** Список поверхів для виведення на панелі. */
   floors: FloorListItem[];
+  /** ID поточного вибраного поверху. */
   selectedFloorId: number | null;
+  /** Зворотний виклик при виборі іншого поверху. */
   onSelect: (floorId: number) => void;
 }
 
+/**
+ * Вертикальна панель перемикання поверхів на карті.
+ * Сортує поверхи за номером у зворотному порядку (зверху вниз) для наочності.
+ */
 export default function FloorRail({
   floors,
   selectedFloorId,

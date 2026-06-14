@@ -4,12 +4,19 @@ import { useMsal } from '@azure/msal-react';
 import { loginWithMicrosoft } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 
+/**
+ * Сторінка зворотного виклику (callback) після входу через Microsoft.
+ * Обробляє редірект-проміс від MSAL, отримує Microsoft access токен,
+ * надсилає його на бекенд для авторизації та зберігає отриману JWT-сесію.
+ */
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
   const { instance: msalInstance } = useMsal();
   const setSession = useAuthStore((state) => state.setSession);
 
   const [error, setError] = useState<string | null>(null);
+
+  // Реф для уникнення подвійної обробки промісу в React StrictMode
   const isProcessing = useRef(false);
 
   useEffect(() => {

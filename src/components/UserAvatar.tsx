@@ -1,18 +1,34 @@
 import { resolveMediaUrl } from '../utils/media';
 
+/**
+ * Властивості компонента UserAvatar.
+ */
 interface UserAvatarProps {
+  /** Ім'я користувача для відображення ініціалів. */
   name: string | null | undefined;
+  /** Шлях або URL фотографії профілю. */
   photo: string | null;
+  /** Розмір аватара в пікселях (за замовчуванням 32px). */
   size?: number;
+  /** Форма заокруглення кутів аватара. */
   rounded?: 'full' | 'md';
+  /** Ідентифікатор елемента в DOM. */
   id?: string;
 }
 
+/**
+ * Генерує першу літеру (ініціал) імені користувача.
+ * Повертає "?" якщо ім'я відсутнє або порожнє.
+ */
 function initial(name: string | null | undefined): string {
   if (!name) return '?';
   return name.trim()[0]?.toUpperCase() ?? '?';
 }
 
+/**
+ * Компонент аватара користувача.
+ * Відображає зображення профілю або першу літеру імені на кольоровому фоні.
+ */
 export default function UserAvatar({
   name,
   photo,

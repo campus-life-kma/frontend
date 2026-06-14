@@ -1,13 +1,25 @@
+/** Типи кольорового оформлення діалогу підтвердження. */
 type ConfirmDialogVariant = 'danger' | 'warning' | 'info';
 
+/**
+ * Властивості для компонента ConfirmDialog.
+ */
 interface ConfirmDialogProps {
+  /** Заголовок діалогу. */
   title: string;
+  /** Опис дії або попередження. */
   description: string;
+  /** Текст на кнопці підтвердження дії. */
   confirmLabel: string;
+  /** Текст на кнопці скасування (за замовчуванням "Скасувати"). */
   cancelLabel?: string;
+  /** Варіант оформлення діалогу. */
   variant?: ConfirmDialogVariant;
+  /** Чи триває зараз процес відправки (показує loading стан). */
   isPending?: boolean;
+  /** Зворотний виклик для закриття діалогу. */
   onClose: () => void;
+  /** Зворотний виклик при успішному підтвердженні дії. */
   onConfirm: () => void;
 }
 
@@ -39,6 +51,11 @@ const variantStyles: Record<
   },
 };
 
+/**
+ * Загальний компонент модального діалогу підтвердження дій.
+ * Показує іконку попередження, опис дії та кнопки "Скасувати"/"Підтвердити".
+ * Має три варіанти оформлення (danger, warning, info).
+ */
 export default function ConfirmDialog({
   title,
   description,

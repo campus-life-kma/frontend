@@ -1,3 +1,4 @@
+/** Модель авторизованого користувача. */
 export interface User {
   id: string;
   email: string;
@@ -9,12 +10,14 @@ export interface User {
   photo: string | null;
 }
 
+/** Відповідь сервера при успішному вході до системи. */
 export interface LoginResponse {
   access: string;
   refresh: string;
   user: User;
 }
 
+/** Відповідь сервера при оновленні сесії (JWT access токена). */
 export interface RefreshResponse {
   access: string;
   refresh?: string;

@@ -225,6 +225,13 @@ function canModerate(
   return Boolean(itemFloorId && String(itemFloorId) === String(userFloorId));
 }
 
+/**
+ * Сторінка соціальної стрічки (Social Feed).
+ * Відображає стрічку активностей користувачів, яка містить оголошення про події
+ * та запити на обмін речами з можливістю пагінації та гнучкої фільтрації.
+ * Дозволяє приєднуватися до подій, завершувати власні запити на обмін,
+ * а модераторам — моделювати вміст стрічки.
+ */
 export default function SocialFeedPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -361,8 +368,7 @@ export default function SocialFeedPage() {
         if (!(start <= now && end >= now)) return false;
       }
       if (startDate && toInputDate(item.start_time) < startDate) return false;
-      if (endDate && toInputDate(item.start_time) > endDate) return false;
-      return true;
+      return !(endDate && toInputDate(item.start_time) > endDate);
     });
   }, [activeOnly, endDate, feedItems, q, startDate, type]);
 
@@ -955,7 +961,7 @@ function AnnouncementCreateModal({
           )}
 
           {targetType === 'SPECIFIC_USERS' && (
-            <div className="flex min-h-[420px] flex-col gap-3 rounded-lg border border-gray-200 p-3 sm:min-h-[460px]">
+            <div className="flex min-h-105 flex-col gap-3 rounded-lg border border-gray-200 p-3 sm:min-h-115">
               <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
                 <label className="block text-sm font-medium text-gray-700">
                   Пошук адресата

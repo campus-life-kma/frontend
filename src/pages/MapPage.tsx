@@ -9,12 +9,22 @@ import FloorMap from '../components/FloorMap';
 import FloorRail from '../components/FloorRail';
 import RoomDetailsDrawer from '../components/RoomDetailsDrawer';
 
+/**
+ * Перетворює рядок на число або повертає null, якщо парсинг неможливий.
+ */
 function toNumberOrNull(value: string | null | undefined): number | null {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * Головна сторінка інтерактивної карти гуртожитку.
+ * Відображає перемикач поверхів (FloorRail), саму карту (FloorMap)
+ * та панель інформації про кімнату/ресурси.
+ * Підтримує інтерактивний вибір активних та неактивних кімнат,
+ * запуск процесів створення/редагування кімнат модераторами.
+ */
 export default function MapPage() {
   const user = useAuthStore((state) => state.user);
   const [searchParams, setSearchParams] = useSearchParams();

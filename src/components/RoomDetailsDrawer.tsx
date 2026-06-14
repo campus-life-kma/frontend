@@ -5,16 +5,32 @@ import RoomEditPanel from './RoomEditPanel';
 import RoomCreatePanel from './RoomCreatePanel';
 import { useAuthStore } from '../store/authStore';
 
+/**
+ * Властивості для компонента RoomDetailsDrawer.
+ */
 interface RoomDetailsDrawerProps {
+  /** Об'єкт активної кімнати або null. */
   room: RoomOnMap | null;
+  /** Об'єкт неактивної кімнати на карті. */
   inactiveRoom?: InactiveRoomOnMap | null;
+  /** ID поверху. */
   floorId?: number | null;
+  /** Номер поверху. */
   floorNumber?: number | null;
+  /** Назва гуртожитку. */
   dormitoryName?: string | null;
+  /** Зворотний виклик для закриття шторки (drawer). */
   onClose: () => void;
+  /** Зворотний виклик після створення нової кімнати. */
   onRoomCreated?: (room: RoomOnMap) => void;
 }
 
+/**
+ * Висувна нижня/бічна шторка для відображення деталей кімнати.
+ * Використовується на мобільних пристроях чи вузьких екранах.
+ * Обгортає панелі створення (`RoomCreatePanel`), редагування (`RoomEditPanel`)
+ * та перегляду деталей кімнати (`RoomDetailsPanel`).
+ */
 export default function RoomDetailsDrawer({
   room,
   inactiveRoom,

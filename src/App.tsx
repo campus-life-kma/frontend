@@ -12,6 +12,13 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AutoElementIds from './components/AutoElementIds';
 import { useAuthStore } from './store/authStore';
 
+/**
+ * Кореневий компонент додатка.
+ * На етапі монтування виконує відновлення сесії авторизації (bootstrap).
+ * Відображає екран завантаження, поки сесія не перевірена.
+ * Налаштовує маршрутизацію (маршрути для карти, соціальної стрічки,
+ * профілів, статистики та входу) та обгортає приватні роути в ProtectedRoute.
+ */
 function App() {
   const bootstrap = useAuthStore((state) => state.bootstrap);
   const isBootstrapped = useAuthStore((state) => state.isBootstrapped);

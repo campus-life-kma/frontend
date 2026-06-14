@@ -7,6 +7,9 @@ import { msalLoginRequest } from '../api/msal-config';
 import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 
+/**
+ * Витягує повідомлення про помилку з об'єкта помилки (Axios або звичайної).
+ */
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as
@@ -19,6 +22,12 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Сторінка входу в систему.
+ * Надає можливість авторизуватися двома шляхами:
+ * 1. Через офіційний корпоративний Microsoft SSO (для користувачів).
+ * 2. Швидкий вхід за допомогою email (dev-login) для потреб локальної розробки.
+ */
 export default function LoginPage() {
   const navigate = useNavigate();
   const { instance: msalInstance } = useMsal();

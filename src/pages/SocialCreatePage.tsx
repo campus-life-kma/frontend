@@ -80,6 +80,12 @@ function normalizeError(error: unknown): string {
   return 'Не вдалося опублікувати. Перевірте поля і спробуйте ще раз.';
 }
 
+/**
+ * Сторінка створення та редагування соціальних елементів.
+ * Дозволяє користувачам публікувати або змінювати оголошення про події (events)
+ * чи запити на позичання речей (sharing requests) з налаштуванням фільтрів
+ * одержувачів (факультет, спеціальність, поверх).
+ */
 export default function SocialCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

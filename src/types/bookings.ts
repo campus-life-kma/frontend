@@ -1,5 +1,6 @@
 import type { UserOnMap } from './locations';
 
+/** Опис заброньованого слота в розкладі ресурсу. */
 export interface ResourceScheduleBooking {
   booking_id: number;
   start_time: string;
@@ -8,6 +9,7 @@ export interface ResourceScheduleBooking {
   user?: UserOnMap | null;
 }
 
+/** Повна модель бронювання ресурсу користувачем. */
 export interface Booking {
   id: number;
   user: UserOnMap;
@@ -22,6 +24,7 @@ export interface Booking {
   status: string;
 }
 
+/** Результат операцій блокування або розблокування ресурсу. */
 export interface ResourceBlockResult {
   id: number;
   name: string;

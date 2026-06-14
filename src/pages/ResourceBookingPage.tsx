@@ -281,6 +281,13 @@ function buildBookingDraft(params: URLSearchParams): BookingDraft | null {
   return { day, start, end, lane: Number.isFinite(lane) ? lane : 1 };
 }
 
+/**
+ * Сторінка бронювання конкретного спільного ресурсу (пральна машина тощо).
+ * Відображає інтерактивний календар/таймлайн заброньованих слотів,
+ * дозволяє вибирати вільні проміжки часу для створення нових бронювань
+ * та скасовувати власні активні бронювання.
+ * Для адміністраторів доступна функція блокування/розблокування ресурсу.
+ */
 export default function ResourceBookingPage() {
   const { resourceId } = useParams();
   const numericResourceId = Number(resourceId);
@@ -640,7 +647,7 @@ export default function ResourceBookingPage() {
           )}
 
           <div ref={scrollRef} className="h-full overflow-auto">
-            <div className="min-w-[760px]">
+            <div className="min-w-190">
               {days.map((day) => (
                 <TimelineDay
                   key={toDateKey(day)}
