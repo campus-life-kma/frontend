@@ -8,6 +8,8 @@ import {
   useSearchParams,
 } from 'react-router-dom';
 import { cancelBooking, getMyBookings } from '../api/bookings';
+import { getFaculties, getMajors, getRoles } from '../api/dictionaries';
+import { getRooms } from '../api/locations';
 import {
   deleteEvent,
   deleteSharingRequest,
@@ -20,18 +22,27 @@ import {
   getUserProfile,
   getUserSocialActivity,
   updateUserProfile,
+  evictUser,
 } from '../api/users';
-import ProfileMenu from '../components/ProfileMenu';
+import AppHeader from '../components/AppHeader';
 import UserAvatar from '../components/UserAvatar';
-import { APP_TITLE } from '../constants/app';
+import ConfirmDialog from '../components/UI/ConfirmDialog';
 import { useAuthStore } from '../store/authStore';
 import type { Booking } from '../types/bookings';
+import type {
+  FacultyListItem,
+  MajorListItem,
+  RoleListItem,
+} from '../types/dictionaries';
+import type { RoomListItem } from '../types/locations';
 import type {
   FeedItem,
   SocialEvent,
   SocialSharingRequest,
 } from '../types/social';
 import type {
+  EducationLevel,
+  Position,
   UserProfile,
   UserProfileEvent,
   UserProfileSharingRequest,
@@ -88,6 +99,45 @@ function formatRole(role: string | null): string {
   return role ? (labels[role] ?? role) : 'Мешканець';
 }
 
+function formatPosition(position: string): string {
+  const labels: Record<string, string> = {
+    STUDENT: 'Студент',
+    TEACHER: 'Викладач',
+    EMPLOYEE: 'Працівник',
+  };
+  return labels[position] ?? 'Студент';
+}
+
+function formatEducationLevel(
+  level: EducationLevel | null | undefined
+): string {
+  if (!level) return '';
+  const labels: Record<EducationLevel, string> = {
+    BACHELOR: 'Бакалавр',
+    MASTER: 'Магістр',
+    PHD: 'Аспірант',
+  };
+  return labels[level] ?? '';
+}
+
+function formatStudyYear(
+  educationLevel: EducationLevel | null | undefined,
+  year: string | number | null | undefined
+): string | null {
+  if (!hasValue(year)) return null;
+  const numericYear = Number(year);
+  if (educationLevel === 'PHD') {
+    return `${numericYear} ${formatYearWord(numericYear)}`;
+  }
+  return `${numericYear} курс`;
+}
+
+function formatYearWord(year: number): string {
+  if (year === 1) return 'рік';
+  if (year >= 2 && year <= 4) return 'рік';
+  return 'рік';
+}
+
 function formatSocialStatus(status: string): string {
   const labels: Record<string, string> = {
     ACTIVE: 'Активний',
@@ -113,10 +163,19 @@ function locationLine(profile: UserProfile): string {
 }
 
 function studyLine(profile: UserProfile): string {
+  if (profile.position === 'EMPLOYEE') {
+    return 'Працівник університету';
+  }
+  if (profile.position === 'TEACHER') {
+    const parts = [profile.faculty_name, 'Викладач'].filter(hasValue);
+    return parts.length > 0 ? parts.join(' • ') : 'Викладач';
+  }
+
   const parts = [
     profile.faculty_name,
     profile.major_name,
-    profile.year ? `${profile.year} курс` : null,
+    formatEducationLevel(profile.education_level),
+    formatStudyYear(profile.education_level, profile.year),
   ].filter(hasValue);
 
   return parts.length > 0 ? parts.join(' / ') : 'Навчальні дані не вказані';
@@ -139,6 +198,15 @@ function normalizeError(error: unknown): string {
     if (typeof data === 'object' && data !== null && 'detail' in data) {
       return String(data.detail);
     }
+    if (typeof data === 'object' && data !== null) {
+      const firstValue = Object.values(data)[0];
+      if (Array.isArray(firstValue)) {
+        return String(firstValue[0]);
+      }
+      if (typeof firstValue === 'string') {
+        return firstValue;
+      }
+    }
   }
   return 'Не вдалося виконати дію.';
 }
@@ -146,9 +214,17 @@ function normalizeError(error: unknown): string {
 function canManageItem(
   currentUserId: string | null | undefined,
   currentRole: string | null | undefined,
+  currentFloorId: string | null | undefined,
   item: FeedItem
 ): boolean {
-  return item.creator.id === currentUserId || currentRole === 'ADMIN';
+  if (item.creator.id === currentUserId || currentRole === 'ADMIN') {
+    return true;
+  }
+
+  if (currentRole !== 'MODERATOR') return false;
+  return Boolean(
+    item.floor_id && currentFloorId && String(item.floor_id) === currentFloorId
+  );
 }
 
 function canCancelSocialItem(item: FeedItem): boolean {
@@ -161,18 +237,19 @@ export default function UserProfilePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
   const updateCurrentUser = useAuthStore((state) => state.updateUser);
   const [activeTab, setActiveTab] = useState<ActivityTab>('hosted');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [evictionDialogOpen, setEvictionDialogOpen] = useState(false);
 
   const isPrivateMode = !userId || userId === 'me';
   const targetUserId = isPrivateMode ? currentUser?.id : userId;
-  const canEditProfile =
+  const canEditIdentity =
     Boolean(targetUserId) &&
     (isPrivateMode ||
       currentUser?.id === targetUserId ||
       currentUser?.role === 'ADMIN');
+  const isAdmin = currentUser?.role === 'ADMIN';
 
   const selectedEventId = Number(searchParams.get('eventId'));
   const selectedSharingId = Number(searchParams.get('sharingId'));
@@ -193,6 +270,30 @@ export default function UserProfilePage() {
     queryKey: ['bookings-me'],
     queryFn: getMyBookings,
     enabled: isPrivateMode && !!targetUserId,
+  });
+
+  const rolesQuery = useQuery({
+    queryKey: ['roles'],
+    queryFn: getRoles,
+    enabled: isAdmin && !!targetUserId,
+  });
+
+  const facultiesQuery = useQuery({
+    queryKey: ['faculties'],
+    queryFn: getFaculties,
+    enabled: isAdmin && !!targetUserId,
+  });
+
+  const majorsQuery = useQuery({
+    queryKey: ['majors'],
+    queryFn: getMajors,
+    enabled: isAdmin && !!targetUserId,
+  });
+
+  const roomsQuery = useQuery({
+    queryKey: ['rooms'],
+    queryFn: getRooms,
+    enabled: isAdmin && !!targetUserId,
   });
 
   const eventDetailQuery = useQuery({
@@ -276,7 +377,31 @@ export default function UserProfilePage() {
     onError: (error) => setActionError(normalizeError(error)),
   });
 
+  const evictUserMutation = useMutation({
+    mutationFn: evictUser,
+    onSuccess: () => {
+      setEvictionDialogOpen(false);
+      setActionError(null);
+      navigate('/', { replace: true });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+      void queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+    },
+    onError: (error) => setActionError(normalizeError(error)),
+  });
+
   const profile = profileQuery.data;
+  const canModerateTargetProfile = Boolean(
+    profile &&
+    currentUser?.role === 'MODERATOR' &&
+    currentUser.id !== profile.id &&
+    currentUser.floor_id &&
+    profile.floor_id &&
+    currentUser.floor_id === String(profile.floor_id)
+  );
+  const canEditStatusBio = canEditIdentity || canModerateTargetProfile;
+  const canEvictProfile = Boolean(
+    profile && isAdmin && currentUser?.id !== profile.id
+  );
 
   const activeBookings = useMemo(
     () =>
@@ -331,28 +456,7 @@ export default function UserProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-gray-900">
-            <Link to="/">{APP_TITLE}</Link>
-          </h1>
-          <nav className="flex items-center gap-2 text-sm">
-            <Link
-              className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
-              to="/"
-            >
-              Мапа
-            </Link>
-            <Link
-              className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
-              to="/feed"
-            >
-              Стрічка
-            </Link>
-          </nav>
-        </div>
-        {currentUser && <ProfileMenu user={currentUser} onLogout={logout} />}
-      </header>
+      <AppHeader />
 
       <main className="mx-auto flex max-w-6xl flex-col gap-5 px-6 py-6">
         {profileQuery.isLoading && (
@@ -371,8 +475,23 @@ export default function UserProfilePage() {
             <ProfileHeader
               profile={profile}
               isPrivateMode={isPrivateMode}
-              canEdit={canEditProfile}
+              isAdmin={isAdmin}
+              canEditIdentity={canEditIdentity}
+              canEditStatusBio={canEditStatusBio}
+              roles={rolesQuery.data ?? []}
+              faculties={facultiesQuery.data ?? []}
+              majors={majorsQuery.data ?? []}
+              rooms={roomsQuery.data ?? []}
+              dictionariesLoading={
+                rolesQuery.isLoading ||
+                facultiesQuery.isLoading ||
+                majorsQuery.isLoading ||
+                roomsQuery.isLoading
+              }
               saving={updateProfileMutation.isPending}
+              canEvict={canEvictProfile}
+              evicting={evictUserMutation.isPending}
+              onRequestEvict={() => setEvictionDialogOpen(true)}
               onSave={(payload) => updateProfileMutation.mutateAsync(payload)}
             />
 
@@ -424,14 +543,42 @@ export default function UserProfilePage() {
           loading={eventDetailQuery.isLoading || sharingDetailQuery.isLoading}
           currentUserId={currentUser?.id ?? null}
           currentRole={currentUser?.role ?? null}
+          currentFloorId={currentUser?.floor_id ?? null}
           actionError={actionError}
           onClose={closeDetailsModal}
           onJoin={(eventId) => joinMutation.mutate(eventId)}
           onLeave={(eventId) => leaveMutation.mutate(eventId)}
-          onDeleteEvent={(eventId) => deleteEventMutation.mutate(eventId)}
-          onDeleteSharing={(requestId) =>
-            deleteSharingMutation.mutate(requestId)
+          onDeleteEvent={(eventId) => {
+            if (window.confirm('Ви впевнені, що хочете видалити цю подію?')) {
+              deleteEventMutation.mutate(eventId);
+            }
+          }}
+          onDeleteSharing={(requestId) => {
+            if (
+              window.confirm(
+                'Ви впевнені, що хочете видалити цей запит на взаємодопомогу?'
+              )
+            ) {
+              deleteSharingMutation.mutate(requestId);
+            }
+          }}
+        />
+      )}
+
+      {evictionDialogOpen && profile && (
+        <ConfirmDialog
+          title="Виселити користувача?"
+          description={
+            `Профіль «${profile.display_name}» буде видалено з бази ` +
+            'мешканців Campus Life. Перед видаленням користувач отримає ' +
+            'email-сповіщення, а якщо лист не вдасться надіслати, ' +
+            'виселення буде скасовано.'
           }
+          confirmLabel="Виселити"
+          variant="danger"
+          isPending={evictUserMutation.isPending}
+          onClose={() => setEvictionDialogOpen(false)}
+          onConfirm={() => evictUserMutation.mutate(profile.id)}
         />
       )}
     </div>
@@ -451,18 +598,54 @@ function ProfileShell({ title }: { title: string }) {
 function ProfileHeader({
   profile,
   isPrivateMode,
-  canEdit,
+  isAdmin,
+  canEditIdentity,
+  canEditStatusBio,
+  roles,
+  faculties,
+  majors,
+  rooms,
+  dictionariesLoading,
   saving,
+  canEvict,
+  evicting,
+  onRequestEvict,
   onSave,
 }: {
   profile: UserProfile;
   isPrivateMode: boolean;
-  canEdit: boolean;
+  isAdmin: boolean;
+  canEditIdentity: boolean;
+  canEditStatusBio: boolean;
+  roles: RoleListItem[];
+  faculties: FacultyListItem[];
+  majors: MajorListItem[];
+  rooms: RoomListItem[];
+  dictionariesLoading: boolean;
   saving: boolean;
+  canEvict: boolean;
+  evicting: boolean;
+  onRequestEvict: () => void;
   onSave: (payload: UserProfileUpdatePayload) => Promise<UserProfile>;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(profile.display_name);
+  const sortedRooms = useMemo(
+    () =>
+      [...rooms].sort((a, b) => {
+        const floorDiff =
+          (a.floor_number ?? a.floor) - (b.floor_number ?? b.floor);
+        if (floorDiff !== 0) return floorDiff;
+        return a.name.localeCompare(b.name, 'uk');
+      }),
+    [rooms]
+  );
+  const sortedFaculties = useMemo(
+    () => [...faculties].sort((a, b) => a.name.localeCompare(b.name, 'uk')),
+    [faculties]
+  );
+
+  const canEditAdminField = isAdmin && !dictionariesLoading;
 
   async function saveName() {
     const nextName = nameDraft.trim();
@@ -486,7 +669,7 @@ function ProfileHeader({
               photo={profile.photo}
               size={96}
             />
-            {canEdit && (
+            {canEditIdentity && (
               <label
                 className={
                   'absolute right-0 bottom-0 flex h-8 w-8 cursor-pointer ' +
@@ -554,7 +737,7 @@ function ProfileHeader({
                   {profile.display_name}
                 </h1>
               )}
-              {canEdit && !editingName && (
+              {canEditIdentity && !editingName && (
                 <button
                   type="button"
                   onClick={() => {
@@ -574,7 +757,15 @@ function ProfileHeader({
                 </span>
               )}
             </div>
-            <p className="mt-1 text-sm text-gray-500">{profile.email}</p>
+            <InlineEditableText
+              value={profile.email}
+              placeholder="Пошту не вказано"
+              canEdit={isAdmin}
+              saving={saving}
+              className="mt-1 text-sm text-gray-500"
+              inputType="email"
+              onSave={(value) => onSave({ email: value })}
+            />
             <p className="mt-2 text-sm font-medium text-gray-700">
               {studyLine(profile)}
             </p>
@@ -582,21 +773,174 @@ function ProfileHeader({
               {locationLine(profile)}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Badge>{formatRole(profile.role_name)}</Badge>
+              <EditableBadgeSelect
+                value={formatRole(profile.role_name)}
+                editValue={profile.role_id ? String(profile.role_id) : ''}
+                canEdit={canEditAdminField}
+                saving={saving}
+                onSave={(value) =>
+                  onSave({ role: value ? Number(value) : null })
+                }
+              >
+                <option value="">Без ролі</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {formatRole(role.name)}
+                  </option>
+                ))}
+              </EditableBadgeSelect>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-2 text-sm md:min-w-72">
-          <InfoLine label="Кімната" value={profile.room_name ?? 'Не вказано'} />
-          <InfoLine
-            label="Факультет"
-            value={profile.faculty_name ?? 'Не вказано'}
-          />
-          <InfoLine
-            label="Спеціальність"
-            value={profile.major_name ?? 'Не вказано'}
-          />
+        <div className="flex flex-col gap-3 md:min-w-72">
+          {canEvict && (
+            <button
+              type="button"
+              onClick={onRequestEvict}
+              disabled={evicting}
+              className={
+                'self-start rounded-md border border-red-200 bg-red-50 ' +
+                'px-3 py-2 text-sm font-semibold text-red-700 ' +
+                'hover:bg-red-100 disabled:opacity-60 md:self-end'
+              }
+            >
+              {evicting ? 'Виселяємо…' : 'Виселити'}
+            </button>
+          )}
+          <div className="grid gap-2 text-sm">
+            <EditableInfoLine
+              label="Кімната"
+              value={profile.room_name ?? 'Не вказано'}
+              editValue={profile.room_id ? String(profile.room_id) : ''}
+              canEdit={canEditAdminField}
+              saving={saving}
+              onSave={(value) => onSave({ room: value ? Number(value) : null })}
+            >
+              <option value="">Без кімнати</option>
+              {sortedRooms.map((room) => (
+                <option
+                  key={room.id}
+                  value={room.id}
+                  disabled={roomDisabled(room, profile.room_id)}
+                >
+                  {roomLabel(room)}
+                </option>
+              ))}
+            </EditableInfoLine>
+            <EditableInfoLine
+              label="Позиція у ВНЗ"
+              value={formatPosition(profile.position)}
+              editValue={profile.position}
+              canEdit={canEditAdminField}
+              saving={saving}
+              onSave={(value) => onSave({ position: value as Position })}
+            >
+              <option value="STUDENT">Студент</option>
+              <option value="TEACHER">Викладач</option>
+              <option value="EMPLOYEE">Працівник</option>
+            </EditableInfoLine>
+
+            {profile.position === 'TEACHER' && (
+              <EditableInfoLine
+                label="Факультет"
+                value={profile.faculty_name ?? 'Не вказано'}
+                editValue={profile.faculty_id ? String(profile.faculty_id) : ''}
+                canEdit={canEditAdminField}
+                saving={saving}
+                onSave={(value) =>
+                  onSave({ faculty: value ? Number(value) : null })
+                }
+              >
+                <option value="">Без факультету</option>
+                {sortedFaculties.map((faculty) => (
+                  <option key={faculty.id} value={faculty.id}>
+                    {faculty.name}
+                  </option>
+                ))}
+              </EditableInfoLine>
+            )}
+            {profile.position === 'STUDENT' && (
+              <div className="rounded-md bg-gray-50 px-3 py-2">
+                <p className="text-xs font-medium tracking-wide text-gray-400 uppercase">
+                  Факультет
+                </p>
+                <p className="mt-1 font-medium break-words text-gray-800">
+                  {profile.faculty_name ?? 'Не вказано'}
+                </p>
+              </div>
+            )}
+            {profile.position === 'STUDENT' && (
+              <>
+                <EditableInfoLine
+                  label="Спеціальність"
+                  value={profile.major_name ?? 'Не вказано'}
+                  editValue={profile.major_id ? String(profile.major_id) : ''}
+                  canEdit={canEditAdminField}
+                  saving={saving}
+                  onSave={(value) =>
+                    onSave({ major: value ? Number(value) : null })
+                  }
+                >
+                  <option value="">Без спеціальності</option>
+                  {majors.map((major) => (
+                    <option key={major.id} value={major.id}>
+                      {major.name}
+                    </option>
+                  ))}
+                </EditableInfoLine>
+                <EditableInfoLine
+                  label="Рівень навчання"
+                  value={formatEducationLevel(profile.education_level)}
+                  editValue={profile.education_level ?? ''}
+                  canEdit={canEditAdminField}
+                  saving={saving}
+                  onSave={(value) => {
+                    const educationLevel = value as EducationLevel;
+                    const currentYear = profile.year
+                      ? Number(profile.year)
+                      : null;
+                    return onSave({
+                      education_level: educationLevel,
+                      year:
+                        educationLevel === 'MASTER' &&
+                        currentYear !== null &&
+                        currentYear > 2
+                          ? 2
+                          : currentYear,
+                    });
+                  }}
+                >
+                  <option value="BACHELOR">Бакалавр</option>
+                  <option value="MASTER">Магістр</option>
+                  <option value="PHD">Аспірант</option>
+                </EditableInfoLine>
+                <EditableInfoLine
+                  label="Курс"
+                  value={
+                    formatStudyYear(profile.education_level, profile.year) ??
+                    'Не вказано'
+                  }
+                  editValue={profile.year ? String(profile.year) : ''}
+                  canEdit={canEditAdminField}
+                  saving={saving}
+                  onSave={(value) =>
+                    onSave({ year: value ? Number(value) : null })
+                  }
+                >
+                  <option value="">Не вказано</option>
+                  <option value="1">1 курс</option>
+                  <option value="2">2 курс</option>
+                  {profile.education_level !== 'MASTER' && (
+                    <>
+                      <option value="3">3 курс</option>
+                      <option value="4">4 курс</option>
+                    </>
+                  )}
+                </EditableInfoLine>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -605,7 +949,7 @@ function ProfileHeader({
           label="Статус"
           value={profile.status}
           placeholder="Статус ще не вказано."
-          canEdit={canEdit}
+          canEdit={canEditStatusBio}
           saving={saving}
           onSave={(value) => onSave({ status: value })}
         />
@@ -613,7 +957,7 @@ function ProfileHeader({
           label="Біо"
           value={profile.bio}
           placeholder="Користувач ще не додав опис профілю."
-          canEdit={canEdit}
+          canEdit={canEditStatusBio}
           multiline
           saving={saving}
           onSave={(value) => onSave({ bio: value })}
@@ -725,6 +1069,294 @@ function EditableProfileField({
       )}
     </section>
   );
+}
+
+function InlineEditableText({
+  value,
+  placeholder,
+  canEdit,
+  saving,
+  className,
+  inputType = 'text',
+  onSave,
+}: {
+  value: string | null;
+  placeholder: string;
+  canEdit: boolean;
+  saving: boolean;
+  className: string;
+  inputType?: string;
+  onSave: (value: string) => Promise<unknown>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? '');
+
+  async function save() {
+    const nextValue = draft.trim();
+    if (!nextValue) return;
+    await onSave(nextValue);
+    setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex min-w-0 items-center gap-1">
+        <p className={`${className} min-w-0 truncate`}>
+          {value || placeholder}
+        </p>
+        {canEdit && (
+          <EditIconButton
+            label="Редагувати поле"
+            onClick={() => {
+              setDraft(value ?? '');
+              setEditing(true);
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+      <input
+        type={inputType}
+        value={draft}
+        disabled={saving}
+        onChange={(event) => setDraft(event.target.value)}
+        className={
+          'min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm ' +
+          'outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+        }
+      />
+      <InlineSaveCancel
+        saving={saving}
+        disabled={!draft.trim()}
+        onSave={() => void save()}
+        onCancel={() => setEditing(false)}
+      />
+    </div>
+  );
+}
+
+function EditableBadgeSelect({
+  value,
+  editValue,
+  canEdit,
+  saving,
+  children,
+  onSave,
+}: {
+  value: string;
+  editValue: string;
+  canEdit: boolean;
+  saving: boolean;
+  children: ReactNode;
+  onSave: (value: string) => Promise<unknown>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(editValue);
+
+  async function save() {
+    await onSave(draft);
+    setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <span className="flex items-center gap-1">
+        <Badge>{value}</Badge>
+        {canEdit && (
+          <EditIconButton
+            label="Редагувати роль"
+            onClick={() => {
+              setDraft(editValue);
+              setEditing(true);
+            }}
+          />
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <select
+        value={draft}
+        disabled={saving}
+        onChange={(event) => setDraft(event.target.value)}
+        className={
+          'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm ' +
+          'outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+        }
+      >
+        {children}
+      </select>
+      <InlineSaveCancel
+        saving={saving}
+        onSave={() => void save()}
+        onCancel={() => setEditing(false)}
+      />
+    </span>
+  );
+}
+
+function EditableInfoLine({
+  label,
+  value,
+  editValue,
+  canEdit,
+  saving,
+  children,
+  onSave,
+}: {
+  label: string;
+  value: string;
+  editValue: string;
+  canEdit: boolean;
+  saving: boolean;
+  children: ReactNode;
+  onSave: (value: string) => Promise<unknown>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(editValue);
+
+  async function save() {
+    await onSave(draft);
+    setEditing(false);
+  }
+
+  return (
+    <div className="rounded-md bg-gray-50 px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium tracking-wide text-gray-400 uppercase">
+          {label}
+        </p>
+        {canEdit && !editing && (
+          <EditIconButton
+            label={`Редагувати ${label.toLowerCase()}`}
+            onClick={() => {
+              setDraft(editValue);
+              setEditing(true);
+            }}
+          />
+        )}
+      </div>
+
+      {!editing ? (
+        <p className="mt-1 font-medium break-words text-gray-800">{value}</p>
+      ) : (
+        <div className="mt-2 space-y-2">
+          <select
+            value={draft}
+            disabled={saving}
+            onChange={(event) => setDraft(event.target.value)}
+            className={
+              'w-full rounded-md border border-gray-300 bg-white px-3 py-2 ' +
+              'text-sm outline-none focus:border-blue-500 focus:ring-1 ' +
+              'focus:ring-blue-500 disabled:bg-gray-50'
+            }
+          >
+            {children}
+          </select>
+          <InlineSaveCancel
+            saving={saving}
+            onSave={() => void save()}
+            onCancel={() => setEditing(false)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditIconButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded p-1 text-gray-400 hover:bg-white hover:text-blue-700"
+      aria-label={label}
+      title={label}
+    >
+      ✎
+    </button>
+  );
+}
+
+function InlineSaveCancel({
+  saving,
+  disabled = false,
+  onSave,
+  onCancel,
+}: {
+  saving: boolean;
+  disabled?: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex justify-end gap-2">
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={saving}
+        className={
+          'rounded-md border border-gray-200 px-2.5 py-1.5 text-xs ' +
+          'font-medium text-gray-700 hover:bg-white disabled:opacity-60'
+        }
+      >
+        Скасувати
+      </button>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={saving || disabled}
+        className={
+          'rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-semibold ' +
+          'text-white hover:bg-blue-700 disabled:bg-gray-300'
+        }
+      >
+        {saving ? 'Зберігаємо…' : 'Зберегти'}
+      </button>
+    </div>
+  );
+}
+
+function roomDisabled(
+  room: RoomListItem,
+  currentRoomId: number | null
+): boolean {
+  const currentRoom = room.id === currentRoomId;
+  const residents = room.current_residents_count ?? 0;
+  const capacity = room.max_person ?? Number.POSITIVE_INFINITY;
+  const nonLivingRoom = room.room_type ? room.room_type !== 'LIVING' : false;
+  return (
+    !currentRoom &&
+    (nonLivingRoom || Boolean(room.is_blocked) || residents >= capacity)
+  );
+}
+
+function roomLabel(room: RoomListItem): string {
+  const floor = room.floor_number ?? room.floor;
+  const residents = room.current_residents_count;
+  const capacity = room.max_person;
+  const occupancy =
+    typeof residents === 'number' && typeof capacity === 'number'
+      ? ` · ${residents}/${capacity}`
+      : '';
+  const state = room.is_blocked
+    ? ' · заблоковано'
+    : room.room_type && room.room_type !== 'LIVING'
+      ? ' · не житлова'
+      : '';
+  return `${floor} поверх · ${room.name}${occupancy}${state}`;
 }
 
 function MyBookingsWidget({
@@ -911,6 +1543,7 @@ function ProfileDetailsModal({
   loading,
   currentUserId,
   currentRole,
+  currentFloorId,
   actionError,
   onClose,
   onJoin,
@@ -923,6 +1556,7 @@ function ProfileDetailsModal({
   loading: boolean;
   currentUserId: string | null;
   currentRole: string | null;
+  currentFloorId: string | null;
   actionError: string | null;
   onClose: () => void;
   onJoin: (eventId: number) => void;
@@ -936,10 +1570,12 @@ function ProfileDetailsModal({
       (participant) => participant.id === currentUserId
     ) ?? false;
   const canManage = item
-    ? canManageItem(currentUserId, currentRole, item)
+    ? canManageItem(currentUserId, currentRole, currentFloorId, item)
     : false;
   const canCancel = item ? canManage && canCancelSocialItem(item) : false;
-  const canEdit = item ? canManage && canCancelSocialItem(item) : false;
+  const canEdit = item
+    ? item.creator.id === currentUserId && canCancelSocialItem(item)
+    : false;
 
   return (
     <div
@@ -1109,17 +1745,6 @@ function Badge({ children }: { children: string }) {
     <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
       {children}
     </span>
-  );
-}
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-gray-50 px-3 py-2">
-      <p className="text-xs font-medium tracking-wide text-gray-400 uppercase">
-        {label}
-      </p>
-      <p className="mt-1 font-medium text-gray-800">{value}</p>
-    </div>
   );
 }
 

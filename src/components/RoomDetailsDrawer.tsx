@@ -1,32 +1,45 @@
-import { useEffect } from 'react';
-import type { RoomOnMap } from '../types/locations';
+import { useEffect, useState } from 'react';
+import type { InactiveRoomOnMap, RoomOnMap } from '../types/locations';
 import RoomDetailsPanel from './RoomDetailsPanel';
+import RoomEditPanel from './RoomEditPanel';
+import RoomCreatePanel from './RoomCreatePanel';
+import { useAuthStore } from '../store/authStore';
 
 interface RoomDetailsDrawerProps {
   room: RoomOnMap | null;
+  inactiveRoom?: InactiveRoomOnMap | null;
   floorId?: number | null;
   floorNumber?: number | null;
   dormitoryName?: string | null;
   onClose: () => void;
+  onRoomCreated?: (room: RoomOnMap) => void;
 }
 
 export default function RoomDetailsDrawer({
   room,
+  inactiveRoom,
   floorId,
   floorNumber,
   dormitoryName,
   onClose,
+  onRoomCreated,
 }: RoomDetailsDrawerProps) {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN';
+  const [editingRoomId, setEditingRoomId] = useState<number | null>(null);
+  const hasInactiveRoom = Boolean(inactiveRoom);
+  const isEditing = Boolean(room && editingRoomId === room.id);
+
   useEffect(() => {
-    if (!room) return;
+    if (!room && !inactiveRoom) return;
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [room, onClose]);
+  }, [room, inactiveRoom, onClose]);
 
-  if (!room) return null;
+  if (!room && !inactiveRoom) return null;
 
   return (
     <div
@@ -49,6 +62,18 @@ export default function RoomDetailsDrawer({
           'md:shadow-[-8px_0_24px_rgba(0,0,0,0.15)]'
         }
       >
+        {isAdmin && room && !isEditing && (
+          <button
+            type="button"
+            onClick={() => setEditingRoomId(room.id)}
+            className={
+              'absolute top-3 right-12 flex h-8 items-center justify-center rounded-full ' +
+              'px-3 text-sm font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900'
+            }
+          >
+            ✏️ Редагувати
+          </button>
+        )}
         <button
           id="room-details-close"
           type="button"
@@ -62,12 +87,31 @@ export default function RoomDetailsDrawer({
         >
           ×
         </button>
-        <RoomDetailsPanel
-          room={room}
-          floorId={floorId}
-          floorNumber={floorNumber}
-          dormitoryName={dormitoryName}
-        />
+        {hasInactiveRoom && inactiveRoom && floorId ? (
+          <RoomCreatePanel
+            floorId={floorId}
+            svgElementId={inactiveRoom.svg_element_id}
+            onCancel={onClose}
+            onCreated={(createdRoom) => {
+              onRoomCreated?.(createdRoom);
+              setEditingRoomId(null);
+            }}
+          />
+        ) : isEditing && room ? (
+          <RoomEditPanel
+            room={room}
+            floorId={floorId}
+            onCancel={() => setEditingRoomId(null)}
+          />
+        ) : room ? (
+          <RoomDetailsPanel
+            room={room}
+            floorId={floorId}
+            floorNumber={floorNumber}
+            dormitoryName={dormitoryName}
+            onRoomDeleted={onClose}
+          />
+        ) : null}
       </div>
     </div>
   );

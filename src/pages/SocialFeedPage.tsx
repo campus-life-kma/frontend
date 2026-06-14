@@ -15,7 +15,6 @@ import {
   getSharingRequest,
   joinEvent,
   leaveEvent,
-  updateEvent,
 } from '../api/social';
 import {
   createAnnouncement,
@@ -25,9 +24,8 @@ import {
 } from '../api/announcements';
 import { getFloors, getRooms } from '../api/locations';
 import UserAvatar from '../components/UserAvatar';
-import ProfileMenu from '../components/ProfileMenu';
+import AppHeader from '../components/AppHeader';
 import ConfirmDialog from '../components/UI/ConfirmDialog';
-import { APP_TITLE } from '../constants/app';
 import { useAuthStore } from '../store/authStore';
 import type {
   Announcement,
@@ -47,9 +45,7 @@ type FeedOrdering = 'created_at' | 'start_time';
 type PendingDelete =
   | { kind: 'event'; id: number; title: string }
   | { kind: 'sharing'; id: number; title: string };
-type PendingComplete =
-  | { kind: 'event'; id: number; title: string }
-  | { kind: 'sharing'; id: number; title: string };
+type PendingComplete = { kind: 'sharing'; id: number; title: string };
 
 const ANNOUNCEMENT_ERROR_LABELS: Record<string, string> = {
   title: 'Заголовок',
@@ -133,15 +129,6 @@ function isEvent(item: FeedItem): item is SocialEvent {
 
 function isSharing(item: FeedItem): item is SocialSharingRequest {
   return item.type === 'sharing_request';
-}
-
-function isActiveEvent(event: SocialEvent): boolean {
-  const now = new Date();
-  return (
-    event.status === 'ACTIVE' &&
-    new Date(event.start_time) <= now &&
-    new Date(event.end_time) > now
-  );
 }
 
 function canCancelSocialItem(item: FeedItem): boolean {
@@ -242,7 +229,6 @@ export default function SocialFeedPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
   const [page, setPage] = useState(1);
   const [acknowledgedTimedState, setAcknowledgedTimedState] = useState<{
     key: string | null;
@@ -273,6 +259,9 @@ export default function SocialFeedPage() {
     searchParams.get('mapFloorId') ??
     (floor === 'mine' ? user?.floor_id : floor !== 'all' ? floor : null);
   const mapPath = mapFloorId ? `/?floorId=${mapFloorId}` : '/';
+  const statisticsPath = mapFloorId
+    ? `/statistics?mapFloorId=${mapFloorId}`
+    : '/statistics';
   const acknowledgedTimedStorageKey = user?.id
     ? `campus-life:acknowledged-timed-announcements:${user.id}`
     : null;
@@ -446,18 +435,6 @@ export default function SocialFeedPage() {
     onError: (error) => setActionError(normalizeError(error)),
   });
 
-  const completeEventMutation = useMutation({
-    mutationFn: (eventIdToComplete: number) =>
-      updateEvent(eventIdToComplete, { end_time: new Date().toISOString() }),
-    onSuccess: async () => {
-      setPendingComplete(null);
-      closeModal();
-      await queryClient.invalidateQueries({ queryKey: ['feed'] });
-      await queryClient.invalidateQueries({ queryKey: ['event-detail'] });
-    },
-    onError: (error) => setActionError(normalizeError(error)),
-  });
-
   function updateParam(key: string, value: string | null) {
     const next = new URLSearchParams(searchParams);
     if (!value || value === 'all') next.delete(key);
@@ -504,35 +481,15 @@ export default function SocialFeedPage() {
     pendingDelete?.kind === 'event' ? 'подію' : 'запит на шеринг';
   const isDeleting =
     deleteEventMutation.isPending || deleteSharingMutation.isPending;
-  const pendingCompleteLabel =
-    pendingComplete?.kind === 'event' ? 'івент' : 'запит на шеринг';
-  const isCompleting =
-    completeEventMutation.isPending || completeSharingMutation.isPending;
+  const isCompleting = completeSharingMutation.isPending;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-gray-900">
-            <Link to={mapPath}>{APP_TITLE}</Link>
-          </h1>
-          <nav className="flex items-center gap-2 text-sm">
-            <Link
-              className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50"
-              to={mapPath}
-            >
-              Мапа
-            </Link>
-            <Link
-              className="rounded-md bg-blue-50 px-3 py-1.5 font-medium text-blue-700"
-              to="/feed"
-            >
-              Стрічка
-            </Link>
-          </nav>
-        </div>
-        {user && <ProfileMenu user={user} onLogout={logout} />}
-      </header>
+      <AppHeader
+        active="feed"
+        mapPath={mapPath}
+        statisticsPath={statisticsPath}
+      />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-6">
         <section className="space-y-3">
@@ -640,7 +597,6 @@ export default function SocialFeedPage() {
           onLeave={(id) => leaveMutation.mutate(id)}
           onDeleteEvent={(item) => setPendingDelete(item)}
           onDeleteSharing={(item) => setPendingDelete(item)}
-          onCompleteEvent={(item) => setPendingComplete(item)}
           onCompleteSharing={(item) => setPendingComplete(item)}
         />
       )}
@@ -683,23 +639,13 @@ export default function SocialFeedPage() {
       {pendingComplete && (
         <ConfirmDialog
           variant="info"
-          title={`Позначити ${pendingCompleteLabel} виконаним?`}
-          description={
-            pendingComplete.kind === 'event'
-              ? `Івент «${pendingComplete.title}» буде завершено зараз і зникне з актуальної стрічки.`
-              : `Запит «${pendingComplete.title}» отримає статус «Виконано» і зникне з активної стрічки.`
-          }
+          title="Позначити запит на шеринг виконаним?"
+          description={`Запит «${pendingComplete.title}» отримає статус «Виконано» і зникне з активної стрічки.`}
           cancelLabel="Не зараз"
           confirmLabel={isCompleting ? 'Оновлюємо…' : 'Позначити виконаним'}
           isPending={isCompleting}
           onClose={() => setPendingComplete(null)}
-          onConfirm={() => {
-            if (pendingComplete.kind === 'event') {
-              completeEventMutation.mutate(pendingComplete.id);
-            } else {
-              completeSharingMutation.mutate(pendingComplete.id);
-            }
-          }}
+          onConfirm={() => completeSharingMutation.mutate(pendingComplete.id)}
         />
       )}
     </div>
@@ -1428,7 +1374,6 @@ function DetailsModal({
   onLeave,
   onDeleteEvent,
   onDeleteSharing,
-  onCompleteEvent,
   onCompleteSharing,
 }: {
   event?: SocialEvent;
@@ -1443,7 +1388,6 @@ function DetailsModal({
   onLeave: (id: number) => void;
   onDeleteEvent: (item: PendingDelete) => void;
   onDeleteSharing: (item: PendingDelete) => void;
-  onCompleteEvent: (item: PendingComplete) => void;
   onCompleteSharing: (item: PendingComplete) => void;
 }) {
   const item = event ?? sharing;
@@ -1454,7 +1398,6 @@ function DetailsModal({
   const canEdit = item ? isOwner && canCancelSocialItem(item) : false;
   const canCompleteSharing =
     Boolean(sharing) && sharing?.status === 'ACTIVE' && isOwner;
-  const canCompleteEvent = event ? isOwner && isActiveEvent(event) : false;
   const joined =
     event?.participants?.some(
       (participant) => participant.id === currentUserId
@@ -1601,21 +1544,6 @@ function DetailsModal({
                 {joined ? "Від'єднатися" : 'Приєднатися'}
               </button>
             )}
-            {canCompleteEvent && event && (
-              <button
-                type="button"
-                onClick={() =>
-                  onCompleteEvent({
-                    kind: 'event',
-                    id: event.id,
-                    title: event.title,
-                  })
-                }
-                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-              >
-                Завершити івент
-              </button>
-            )}
             {canCompleteSharing && sharing && (
               <button
                 type="button"
@@ -1676,16 +1604,6 @@ function DetailsModal({
                 Редагувати
               </Link>
             )}
-            <button
-              type="button"
-              onClick={onClose}
-              className={
-                'rounded-md bg-emerald-600 px-4 py-2 text-sm ' +
-                'font-semibold text-white hover:bg-emerald-700'
-              }
-            >
-              Готово
-            </button>
           </div>
         )}
       </div>

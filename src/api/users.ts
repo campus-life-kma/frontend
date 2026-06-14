@@ -41,3 +41,7 @@ export async function updateUserProfile(
   const { data } = await api.patch<UserProfile>(`/users/${userId}/`, payload);
   return data;
 }
+
+export async function evictUser(userId: string): Promise<void> {
+  await api.delete(`/users/${userId}/`);
+}
