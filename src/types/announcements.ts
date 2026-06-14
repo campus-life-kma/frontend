@@ -44,6 +44,8 @@ export interface AnnouncementRecipient {
   faculty_name: string | null;
   major_name: string | null;
   year: number | null;
+  is_activated: boolean;
+  position: string | null;
 }
 
 export interface AnnouncementRecipientFilters {
@@ -55,4 +57,6 @@ export interface AnnouncementRecipientFilters {
   major_id?: string | number;
   role?: string;
   year?: string | number;
+  position?: string;
+  is_active?: boolean | string;
 }

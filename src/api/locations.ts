@@ -10,6 +10,11 @@ import type {
   ResourceOnMap,
 } from '../types/locations';
 
+export async function getAllFloors(): Promise<FloorListItem[]> {
+  const { data } = await api.get<FloorListItem[]>('/floors/');
+  return data;
+}
+
 export async function getFloors(
   dormitoryId: string | number
 ): Promise<FloorListItem[]> {

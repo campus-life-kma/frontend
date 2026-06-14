@@ -71,8 +71,8 @@ export default function MapPage() {
     : '/feed?type=events&active=true';
   const mapPath = effectiveFloorId ? `/?floorId=${effectiveFloorId}` : '/';
   const statisticsPath = effectiveFloorId
-    ? `/statistics?mapFloorId=${effectiveFloorId}`
-    : '/statistics';
+    ? `/management?mapFloorId=${effectiveFloorId}`
+    : '/management';
 
   return (
     <div id="map-page" className="flex h-screen flex-col bg-gray-50">

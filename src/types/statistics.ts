@@ -71,6 +71,14 @@ export interface PresenceStatistics {
   active: number;
 }
 
+export interface ModeratorAction {
+  moderator_id: number;
+  moderator_name: string;
+  cancelled_events: number;
+  cancelled_sharings: number;
+  cancelled_bookings: number;
+}
+
 export interface StatisticsSummary {
   scope: StatisticsScope;
   residents: ResidentsStatistics;
@@ -80,4 +88,5 @@ export interface StatisticsSummary {
   social: SocialStatistics;
   announcements: AnnouncementsStatistics;
   presence: PresenceStatistics;
+  moderator_actions?: ModeratorAction[];
 }

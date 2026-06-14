@@ -260,8 +260,8 @@ export default function SocialFeedPage() {
     (floor === 'mine' ? user?.floor_id : floor !== 'all' ? floor : null);
   const mapPath = mapFloorId ? `/?floorId=${mapFloorId}` : '/';
   const statisticsPath = mapFloorId
-    ? `/statistics?mapFloorId=${mapFloorId}`
-    : '/statistics';
+    ? `/management?mapFloorId=${mapFloorId}`
+    : '/management';
   const acknowledgedTimedStorageKey = user?.id
     ? `campus-life:acknowledged-timed-announcements:${user.id}`
     : null;

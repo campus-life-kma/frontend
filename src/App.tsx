@@ -7,7 +7,7 @@ import SocialCreatePage from './pages/SocialCreatePage';
 import SocialFeedPage from './pages/SocialFeedPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import UserProfilePage from './pages/UserProfilePage';
-import StatisticsPage from './pages/StatisticsPage';
+import ManagementPage from './pages/ManagementPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import AutoElementIds from './components/AutoElementIds';
 import { useAuthStore } from './store/authStore';
@@ -94,10 +94,10 @@ function App() {
           }
         />
         <Route
-          path="/statistics"
+          path="/management"
           element={
             <ProtectedRoute>
-              <StatisticsPage />
+              <ManagementPage />
             </ProtectedRoute>
           }
         />
