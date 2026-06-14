@@ -168,3 +168,25 @@ export async function deleteResource(
 ): Promise<void> {
   await api.delete(`/resources/${resourceId}/`);
 }
+
+/**
+ * Оновлює SVG мапу для існуючого поверху.
+ * @param floorId - Ідентифікатор поверху.
+ * @param formData - FormData з файлом map_file.
+ * @returns Оновлені дані поверху.
+ */
+export async function updateFloorMap(
+  floorId: string | number,
+  formData: FormData
+): Promise<FloorListItem> {
+  const response = await api.patch<FloorListItem>(
+    `/floors/detail/${floorId}/`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+  return response.data;
+}

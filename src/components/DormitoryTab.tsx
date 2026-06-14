@@ -2,11 +2,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Map } from 'lucide-react';
+import { Plus, Trash2, Map, Pencil } from 'lucide-react';
 import { getFloors, deleteFloor } from '../api/locations';
 
 import AddFloorModal from './AddFloorModal';
+import EditFloorMapModal from './EditFloorMapModal';
 import ConfirmDialog from './UI/ConfirmDialog';
+import type { FloorListItem } from '../types/locations';
 
 interface DormitoryTabProps {
   dormitoryId: number;
@@ -15,6 +17,7 @@ interface DormitoryTabProps {
 const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
   const queryClient = useQueryClient();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [floorToEdit, setFloorToEdit] = useState<FloorListItem | null>(null);
   const [floorToDelete, setFloorToDelete] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -61,6 +64,7 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
           </p>
         </div>
         <button
+          id="add-floor-button"
           onClick={() => setIsAddModalOpen(true)}
           className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
         >
@@ -75,6 +79,7 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {floors.map((floor) => (
             <div
+              id={`floor-card-${floor.id}`}
               key={floor.id}
               className="group flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md"
             >
@@ -85,13 +90,28 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
                     Поверх {floor.number}
                   </span>
                 </div>
-                <button
-                  onClick={() => setFloorToDelete(floor.id)}
-                  className="rounded-md p-1.5 text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 focus:opacity-100"
-                  title="Видалити поверх"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    id={`edit-floor-map-button-${floor.id}`}
+                    type="button"
+                    onClick={() => setFloorToEdit(floor)}
+                    className="rounded-md p-1.5 text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:bg-blue-50 hover:text-blue-600 focus:opacity-100"
+                    title="Редагувати мапу поверху"
+                    aria-label={`Редагувати мапу ${floor.number} поверху`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    id={`delete-floor-button-${floor.id}`}
+                    type="button"
+                    onClick={() => setFloorToDelete(floor.id)}
+                    className="rounded-md p-1.5 text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 focus:opacity-100"
+                    title="Видалити поверх"
+                    aria-label={`Видалити ${floor.number} поверх`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               <div className="flex flex-grow items-center justify-center bg-gray-50 p-4">
                 {floor.map_file ? (
@@ -120,6 +140,7 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
             В цьому гуртожитку ще не додано жодного поверху.
           </p>
           <button
+            id="add-first-floor-button"
             onClick={() => setIsAddModalOpen(true)}
             className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
           >
@@ -134,6 +155,16 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
+
+      {floorToEdit && (
+        <EditFloorMapModal
+          floorId={floorToEdit.id}
+          floorNumber={floorToEdit.number}
+          dormitoryId={dormitoryId}
+          isOpen={Boolean(floorToEdit)}
+          onClose={() => setFloorToEdit(null)}
+        />
+      )}
 
       {floorToDelete !== null && (
         <ConfirmDialog
