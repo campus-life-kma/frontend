@@ -437,7 +437,7 @@ export default function ManagementPage() {
         statisticsPath={statisticsPath}
       />
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6">
+      <main className="mx-auto flex max-w-[95rem] flex-col gap-5 px-4 py-5 sm:px-6">
         {!canSeeStatistics && (
           <StatePanel
             title="Доступ заборонено"

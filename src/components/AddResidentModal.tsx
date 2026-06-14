@@ -80,7 +80,7 @@ export default function AddResidentModal({
       'SPECIFIC_USERS',
     ],
     queryFn: () =>
-      getAnnouncementRecipients({ q: searchQuery, ordering: 'display_name' }),
+      getAnnouncementRecipients({ q: searchQuery, ordering: 'display_name', is_active: 'all' }),
     enabled: activeTab === 'existing',
   });
 
