@@ -36,6 +36,43 @@ export async function getFloorMapData(
 }
 
 /**
+ * Створює новий поверх для гуртожитку.
+ *
+ * @param dormitoryId - Ідентифікатор гуртожитку.
+ * @param number - Номер поверху.
+ * @param mapFile - Файл мапи в форматі SVG.
+ */
+export async function createFloor(
+  dormitoryId: string | number,
+  number: number,
+  mapFile: File
+): Promise<FloorListItem> {
+  const formData = new FormData();
+  formData.append('number', number.toString());
+  formData.append('map_file', mapFile);
+
+  const { data } = await api.post<FloorListItem>(
+    `/floors/${dormitoryId}/`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+  return data;
+}
+
+/**
+ * Видаляє поверх за ідентифікатором.
+ *
+ * @param floorId - Ідентифікатор поверху.
+ */
+export async function deleteFloor(floorId: string | number): Promise<void> {
+  await api.delete(`/floors/detail/${floorId}/`);
+}
+
+/**
  * Отримує загальний список усіх кімнат.
  *
  * @returns Список кімнат.

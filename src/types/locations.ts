@@ -2,6 +2,7 @@
 export interface FloorListItem {
   id: number;
   number: number;
+  map_file?: string;
 }
 
 /** Елемент списку кімнат. */
