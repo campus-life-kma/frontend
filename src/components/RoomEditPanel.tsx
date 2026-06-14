@@ -10,6 +10,7 @@ import {
 } from '../api/locations';
 import { getRoomTypes, getResourceTypes } from '../api/dictionaries';
 import ResourceTypeIcon from './ResourceTypeIcon';
+import ConfirmDialog from './UI/ConfirmDialog';
 
 const ROOM_TYPE_LABEL: Record<string, string> = {
   LIVING: 'Житлова',
@@ -59,6 +60,8 @@ export default function RoomEditPanel({
   const [editingResourceId, setEditingResourceId] = useState<number | null>(
     null
   );
+  const [resourceToDelete, setResourceToDelete] = useState<number | null>(null);
+
   const [editResourceName, setEditResourceName] = useState('');
   const [editResourceType, setEditResourceType] = useState<number | ''>('');
   const [editResourceMaxPerson, setEditResourceMaxPerson] = useState(1);
@@ -376,16 +379,7 @@ export default function RoomEditPanel({
                         <button
                           type="button"
                           className="text-gray-400 hover:text-red-500"
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                'Ви впевнені, що хочете видалити цей ресурс? ' +
-                                  'Це призведе до скасування всіх активних бронювань.'
-                              )
-                            ) {
-                              deleteResourceMutation.mutate(resource.id);
-                            }
-                          }}
+                          onClick={() => setResourceToDelete(resource.id)}
                           disabled={deleteResourceMutation.isPending}
                         >
                           Видалити
@@ -490,9 +484,23 @@ export default function RoomEditPanel({
           className="flex-1 rounded-md bg-blue-600 py-2 text-center text-white hover:bg-blue-700 disabled:opacity-50"
           disabled={updateMutation.isPending || !name.trim()}
         >
-          {updateMutation.isPending ? 'Збереження...' : 'Зберегти'}
+          {updateMutation.isPending ? 'Зберігаємо...' : 'Зберегти'}
         </button>
       </div>
+
+      {resourceToDelete !== null && (
+        <ConfirmDialog
+          title="Видалити ресурс?"
+          description="Ви впевнені, що хочете видалити цей ресурс? Це призведе до скасування всіх активних бронювань."
+          confirmLabel="Видалити"
+          variant="danger"
+          onConfirm={() => {
+            deleteResourceMutation.mutate(resourceToDelete);
+            setResourceToDelete(null);
+          }}
+          onClose={() => setResourceToDelete(null)}
+        />
+      )}
     </div>
   );
 }

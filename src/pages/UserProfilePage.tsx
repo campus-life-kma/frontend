@@ -241,6 +241,8 @@ export default function UserProfilePage() {
   const [activeTab, setActiveTab] = useState<ActivityTab>('hosted');
   const [actionError, setActionError] = useState<string | null>(null);
   const [evictionDialogOpen, setEvictionDialogOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<number | null>(null);
+  const [sharingToDelete, setSharingToDelete] = useState<number | null>(null);
 
   const isPrivateMode = !userId || userId === 'me';
   const targetUserId = isPrivateMode ? currentUser?.id : userId;
@@ -553,19 +555,39 @@ export default function UserProfilePage() {
           onJoin={(eventId) => joinMutation.mutate(eventId)}
           onLeave={(eventId) => leaveMutation.mutate(eventId)}
           onDeleteEvent={(eventId) => {
-            if (window.confirm('Ви впевнені, що хочете видалити цю подію?')) {
-              deleteEventMutation.mutate(eventId);
-            }
+            setEventToDelete(eventId);
           }}
           onDeleteSharing={(requestId) => {
-            if (
-              window.confirm(
-                'Ви впевнені, що хочете видалити цей запит на взаємодопомогу?'
-              )
-            ) {
-              deleteSharingMutation.mutate(requestId);
-            }
+            setSharingToDelete(requestId);
           }}
+        />
+      )}
+
+      {eventToDelete !== null && (
+        <ConfirmDialog
+          title="Видалити подію?"
+          description="Ви впевнені, що хочете видалити цю подію?"
+          confirmLabel="Видалити"
+          variant="danger"
+          onConfirm={() => {
+            deleteEventMutation.mutate(eventToDelete);
+            setEventToDelete(null);
+          }}
+          onClose={() => setEventToDelete(null)}
+        />
+      )}
+
+      {sharingToDelete !== null && (
+        <ConfirmDialog
+          title="Видалити запит?"
+          description="Ви впевнені, що хочете видалити цей запит на взаємодопомогу?"
+          confirmLabel="Видалити"
+          variant="danger"
+          onConfirm={() => {
+            deleteSharingMutation.mutate(sharingToDelete);
+            setSharingToDelete(null);
+          }}
+          onClose={() => setSharingToDelete(null)}
         />
       )}
 
