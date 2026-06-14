@@ -35,6 +35,7 @@ export interface AnnouncementRecipient {
   id: string;
   display_name: string;
   email: string;
+  photo: string | null;
   role_name: string | null;
   floor_id: number | null;
   floor_number: number | null;
