@@ -738,7 +738,7 @@ function ProfileHeader({
   return (
     <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-        <div className="flex min-w-0 gap-4">
+        <div className="flex min-w-0 flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:text-left">
           <div className="relative h-24 w-24 shrink-0">
             <UserAvatar
               name={profile.display_name}
@@ -769,17 +769,22 @@ function ProfileHeader({
               </label>
             )}
           </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="max-w-full min-w-0">
+            <div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               {editingName ? (
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <div
+                  className={
+                    'flex w-full min-w-0 flex-col items-stretch gap-2 ' +
+                    'sm:flex-row sm:flex-wrap sm:items-center'
+                  }
+                >
                   <input
                     value={nameDraft}
                     onChange={(event) => setNameDraft(event.target.value)}
                     className={
-                      'min-w-0 rounded-md border border-gray-300 px-3 py-2 ' +
+                      'w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 ' +
                       'text-xl font-semibold text-gray-950 outline-none ' +
-                      'focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+                      'focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:w-auto'
                     }
                   />
                   <button
@@ -809,7 +814,7 @@ function ProfileHeader({
                   </button>
                 </div>
               ) : (
-                <h1 className="truncate text-2xl font-semibold text-gray-950">
+                <h1 className="max-w-full text-2xl leading-tight font-semibold break-words text-gray-950">
                   {profile.display_name}
                 </h1>
               )}
@@ -820,7 +825,7 @@ function ProfileHeader({
                     setNameDraft(profile.display_name);
                     setEditingName(true);
                   }}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-blue-700"
+                  className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-blue-700"
                   aria-label="Редагувати ім'я"
                   title="Редагувати ім'я"
                 >
@@ -842,13 +847,13 @@ function ProfileHeader({
               inputType="email"
               onSave={(value) => onSave({ email: value })}
             />
-            <p className="mt-2 text-sm font-medium text-gray-700">
+            <p className="mt-2 text-sm font-medium break-words text-gray-700">
               {studyLine(profile)}
             </p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm break-words text-gray-500">
               {locationLine(profile)}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
               <EditableBadgeSelect
                 value={formatRole(profile.role_name)}
                 editValue={profile.role_id ? String(profile.role_id) : ''}
@@ -876,7 +881,7 @@ function ProfileHeader({
               onClick={onRequestEvict}
               disabled={evicting}
               className={
-                'self-start rounded-md border border-red-200 bg-red-50 ' +
+                'self-center rounded-md border border-red-200 bg-red-50 ' +
                 'px-3 py-2 text-sm font-semibold text-red-700 ' +
                 'hover:bg-red-100 disabled:opacity-60 md:self-end'
               }
@@ -1176,8 +1181,8 @@ function InlineEditableText({
 
   if (!editing) {
     return (
-      <div className="flex min-w-0 items-center gap-1">
-        <p className={`${className} min-w-0 truncate`}>
+      <div className="flex max-w-full min-w-0 items-start justify-center gap-1 sm:justify-start">
+        <p className={`${className} max-w-full min-w-0 break-all`}>
           {value || placeholder}
         </p>
         {canEdit && (
@@ -1194,15 +1199,15 @@ function InlineEditableText({
   }
 
   return (
-    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+    <div className="mt-2 flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
       <input
         type={inputType}
         value={draft}
         disabled={saving}
         onChange={(event) => setDraft(event.target.value)}
         className={
-          'min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm ' +
-          'outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+          'w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm ' +
+          'outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:w-auto'
         }
       />
       <InlineSaveCancel
