@@ -125,7 +125,12 @@ export default function RoomDetailsPanel({
   const presence = presenceQuery.data ?? null;
   const isHome = homeRoomId !== null && room.id === homeRoomId;
   const isPresentHere = presence?.room_id === room.id;
-  const isAway = presence !== null;
+  const isCurrentUserInRoom = room.current_users.some(
+    (currentRoomUser) => currentRoomUser.id === user?.id
+  );
+  const isAtHome = isHome && (isPresentHere || isCurrentUserInRoom);
+  const isCheckedInElsewhere = presence !== null && !isPresentHere;
+  const shouldShowGoHomeButton = !isAtHome && (!isHome || isCheckedInElsewhere);
 
   const presenceBusy = checkInMutation.isPending || goHomeMutation.isPending;
   const blockBusy = blockMutation.isPending || unblockMutation.isPending;
@@ -296,10 +301,10 @@ export default function RoomDetailsPanel({
             >
               {checkInMutation.isPending ? 'Продовжуємо…' : 'Продовжити'}
             </button>
-            {goHomeButton}
+            {shouldShowGoHomeButton && goHomeButton}
           </>
         ) : isHome ? (
-          isAway && goHomeButton
+          !isAtHome && isCheckedInElsewhere && goHomeButton
         ) : (
           !room.is_blocked && (
             <button
