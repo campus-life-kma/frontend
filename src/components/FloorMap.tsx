@@ -9,12 +9,21 @@ import type {
   UserOnMap,
 } from '../types/locations';
 
+/**
+ * Властивості компонента FloorMap.
+ */
 interface FloorMapProps {
+  /** Дані про поверх та кімнати для побудови карти. */
   data: FloorMapData;
+  /** Обробник кліку на активну кімнату. */
   onRoomClick: (room: RoomOnMap) => void;
+  /** Обробник кліку на неактивну кімнату (яка ще не активована в системі). */
   onInactiveRoomClick?: (svgElementId: string) => void;
+  /** ID поточної вибраної активної кімнати. */
   selectedRoomId: number | null;
+  /** SVG-ідентифікатор поточної вибраної неактивної кімнати. */
   selectedInactiveRoomId?: string | null;
+  /** Чи дозволено активувати неактивні кімнати (права модератора/адміна). */
   canActivateInactiveRooms?: boolean;
 }
 
@@ -48,8 +57,8 @@ const ROOM_PAD_X = 6;
 const LABEL_FONT_MAX = 13;
 const LABEL_FONT_MIN = 8;
 
-// Each room is split into three horizontal bands by vertical fill extent:
-// name on top, inventory icons in the middle, people at the bottom.
+// Кожна кімната розділена на три горизонтальні смуги по висоті:
+// назва кімнати зверху, іконки інвентарю посередині, користувачі знизу.
 const BAND_NAME_FRACTION = 1 / 6;
 const BAND_INVENTORY_FRACTION = 1 / 2;
 const BAND_PEOPLE_FRACTION = 5 / 6;
@@ -551,6 +560,13 @@ function renderRoomOverlay(
   renderPeopleBand(room, peopleBand, el, bbox, defs, overlayGroup);
 }
 
+/**
+ * Компонент інтерактивної карти поверху.
+ * Завантажує відповідний SVG-файл карти, рендерить його, парсить елементи
+ * кімнат, розфарбовує їх відповідно до типу або блокування та накладає поверх
+ * шари з інформацією (аватари користувачів, іконки ресурсів, назви кімнат).
+ * Підтримує інтерактивне масштабування та панорамування (zoom-pan-pinch).
+ */
 export default function FloorMap({
   data,
   onRoomClick,

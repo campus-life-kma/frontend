@@ -52,6 +52,9 @@ import type {
 type ActivityTab = 'hosted' | 'going';
 type HostedItem = UserProfileEvent | UserProfileSharingRequest;
 
+/**
+ * Форматує дату та час у зручний для читання вигляд.
+ */
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat('uk-UA', {
     day: 'numeric',
@@ -61,6 +64,11 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+/**
+ * Форматує часовий інтервал бронювання.
+ * Замінює дати "сьогодні" або "завтра" на відповідні слова
+ * для кращої читабельності.
+ */
 function formatBookingTime(startValue: string, endValue: string): string {
   const start = new Date(startValue);
   const end = new Date(endValue);
@@ -90,6 +98,9 @@ function formatBookingTime(startValue: string, endValue: string): string {
   return `${day}, ${time.format(start)} - ${time.format(end)}`;
 }
 
+/**
+ * Перекладає системну роль користувача на українську мову.
+ */
 function formatRole(role: string | null): string {
   const labels: Record<string, string> = {
     ADMIN: 'Адміністрація',
@@ -99,6 +110,10 @@ function formatRole(role: string | null): string {
   return role ? (labels[role] ?? role) : 'Мешканець';
 }
 
+/**
+ * Перекладає посаду/статус користувача (студент, викладач тощо)
+ * на українську мову.
+ */
 function formatPosition(position: string): string {
   const labels: Record<string, string> = {
     STUDENT: 'Студент',
@@ -108,6 +123,9 @@ function formatPosition(position: string): string {
   return labels[position] ?? 'Студент';
 }
 
+/**
+ * Перекладає освітній ступінь (бакалавр, магістр, аспірант) на українську мову.
+ */
 function formatEducationLevel(
   level: EducationLevel | null | undefined
 ): string {
@@ -120,6 +138,9 @@ function formatEducationLevel(
   return labels[level] ?? '';
 }
 
+/**
+ * Форматує рядок курсу/року навчання залежно від освітнього ступеня.
+ */
 function formatStudyYear(
   educationLevel: EducationLevel | null | undefined,
   year: string | number | null | undefined
@@ -132,15 +153,20 @@ function formatStudyYear(
   return `${numericYear} курс`;
 }
 
+/** Допоміжна функція для відмінювання слова "рік" */
 function formatYearWord(year: number): string {
   if (year === 1) return 'рік';
   if (year >= 2 && year <= 4) return 'рік';
   return 'рік';
 }
 
+/**
+ * Перекладає системний статус події або запиту на українську мову.
+ */
 function formatSocialStatus(status: string): string {
   const labels: Record<string, string> = {
     ACTIVE: 'Активний',
+    FINISHED: 'Завершено',
     COMPLETED: 'Виконано',
     DONE: 'Виконано',
     CANCELLED: 'Скасовано',
@@ -148,10 +174,35 @@ function formatSocialStatus(status: string): string {
   return labels[status] ?? status;
 }
 
+function isEventFinished(event: { end_time: string }): boolean {
+  return new Date(event.end_time).getTime() <= Date.now();
+}
+
+function isEventActionable(event: {
+  status: string;
+  end_time: string;
+}): boolean {
+  return event.status === 'ACTIVE' && !isEventFinished(event);
+}
+
+function formatEventStatus(event: {
+  status: string;
+  end_time: string;
+}): string {
+  if (event.status === 'ACTIVE' && isEventFinished(event)) {
+    return formatSocialStatus('FINISHED');
+  }
+  return formatSocialStatus(event.status);
+}
+
 function hasValue(value: string | number | null | undefined): boolean {
   return value !== null && value !== undefined && String(value).trim() !== '';
 }
 
+/**
+ * Будує рядок з інформацією про місце проживання користувача
+ * (гуртожиток, поверх, кімната).
+ */
 function locationLine(profile: UserProfile): string {
   const parts = [
     profile.dormitory_name,
@@ -162,6 +213,10 @@ function locationLine(profile: UserProfile): string {
   return parts.length > 0 ? parts.join(' • ') : 'Локацію не вказано';
 }
 
+/**
+ * Будує рядок з інформацією про навчання або посаду користувача
+ * (наприклад, "ФІ / Комп'ютерні науки / Бакалавр / 3 курс" або "Викладач").
+ */
 function studyLine(profile: UserProfile): string {
   if (profile.position === 'EMPLOYEE') {
     return 'Працівник університету';
@@ -181,10 +236,17 @@ function studyLine(profile: UserProfile): string {
   return parts.length > 0 ? parts.join(' / ') : 'Навчальні дані не вказані';
 }
 
+/**
+ * Перевіряє, чи об'єкт активності (HostedItem) є соціальною подією
+ * (а не запитом на обмін).
+ */
 function isEventItem(item: HostedItem): item is UserProfileEvent {
   return item.type === 'event';
 }
 
+/**
+ * Нормалізує помилку з API для виведення в інтерфейсі користувача.
+ */
 function normalizeError(error: unknown): string {
   if (
     typeof error === 'object' &&
@@ -211,6 +273,10 @@ function normalizeError(error: unknown): string {
   return 'Не вдалося виконати дію.';
 }
 
+/**
+ * Перевіряє, чи має користувач права на редагування або видалення елемента
+ * (свої елементи, адмін — усі, модератор — на своєму поверсі).
+ */
 function canManageItem(
   currentUserId: string | null | undefined,
   currentRole: string | null | undefined,
@@ -228,9 +294,18 @@ function canManageItem(
 }
 
 function canCancelSocialItem(item: FeedItem): boolean {
+  if (item.type === 'event') {
+    return isEventActionable(item);
+  }
   return item.status === 'ACTIVE';
 }
 
+/**
+ * Сторінка профілю (кабінету) користувача.
+ * Відображає персональну інформацію, поточне місцезнаходження (check-in),
+ * майбутні бронювання ресурсів, а також створювані користувачем соціальні події
+ * та запити речей. Для адміністраторів доступна функція виселення користувача.
+ */
 export default function UserProfilePage() {
   const { userId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -241,6 +316,8 @@ export default function UserProfilePage() {
   const [activeTab, setActiveTab] = useState<ActivityTab>('hosted');
   const [actionError, setActionError] = useState<string | null>(null);
   const [evictionDialogOpen, setEvictionDialogOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<number | null>(null);
+  const [sharingToDelete, setSharingToDelete] = useState<number | null>(null);
 
   const isPrivateMode = !userId || userId === 'me';
   const targetUserId = isPrivateMode ? currentUser?.id : userId;
@@ -382,7 +459,11 @@ export default function UserProfilePage() {
     onSuccess: () => {
       setEvictionDialogOpen(false);
       setActionError(null);
-      navigate('/', { replace: true });
+      if (profileQuery.data?.floor_id) {
+        navigate(`/?floorId=${profileQuery.data.floor_id}`, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
       void queryClient.invalidateQueries({ queryKey: ['users'] });
       void queryClient.invalidateQueries({ queryKey: ['user-profile'] });
     },
@@ -549,19 +630,39 @@ export default function UserProfilePage() {
           onJoin={(eventId) => joinMutation.mutate(eventId)}
           onLeave={(eventId) => leaveMutation.mutate(eventId)}
           onDeleteEvent={(eventId) => {
-            if (window.confirm('Ви впевнені, що хочете видалити цю подію?')) {
-              deleteEventMutation.mutate(eventId);
-            }
+            setEventToDelete(eventId);
           }}
           onDeleteSharing={(requestId) => {
-            if (
-              window.confirm(
-                'Ви впевнені, що хочете видалити цей запит на взаємодопомогу?'
-              )
-            ) {
-              deleteSharingMutation.mutate(requestId);
-            }
+            setSharingToDelete(requestId);
           }}
+        />
+      )}
+
+      {eventToDelete !== null && (
+        <ConfirmDialog
+          title="Видалити подію?"
+          description="Ви впевнені, що хочете видалити цю подію?"
+          confirmLabel="Видалити"
+          variant="danger"
+          onConfirm={() => {
+            deleteEventMutation.mutate(eventToDelete);
+            setEventToDelete(null);
+          }}
+          onClose={() => setEventToDelete(null)}
+        />
+      )}
+
+      {sharingToDelete !== null && (
+        <ConfirmDialog
+          title="Видалити запит?"
+          description="Ви впевнені, що хочете видалити цей запит на взаємодопомогу?"
+          confirmLabel="Видалити"
+          variant="danger"
+          onConfirm={() => {
+            deleteSharingMutation.mutate(sharingToDelete);
+            setSharingToDelete(null);
+          }}
+          onClose={() => setSharingToDelete(null)}
         />
       )}
 
@@ -662,7 +763,7 @@ function ProfileHeader({
   return (
     <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-        <div className="flex min-w-0 gap-4">
+        <div className="flex min-w-0 flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:text-left">
           <div className="relative h-24 w-24 shrink-0">
             <UserAvatar
               name={profile.display_name}
@@ -693,17 +794,22 @@ function ProfileHeader({
               </label>
             )}
           </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="max-w-full min-w-0">
+            <div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               {editingName ? (
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <div
+                  className={
+                    'flex w-full min-w-0 flex-col items-stretch gap-2 ' +
+                    'sm:flex-row sm:flex-wrap sm:items-center'
+                  }
+                >
                   <input
                     value={nameDraft}
                     onChange={(event) => setNameDraft(event.target.value)}
                     className={
-                      'min-w-0 rounded-md border border-gray-300 px-3 py-2 ' +
+                      'w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 ' +
                       'text-xl font-semibold text-gray-950 outline-none ' +
-                      'focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+                      'focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:w-auto'
                     }
                   />
                   <button
@@ -733,7 +839,7 @@ function ProfileHeader({
                   </button>
                 </div>
               ) : (
-                <h1 className="truncate text-2xl font-semibold text-gray-950">
+                <h1 className="max-w-full text-2xl leading-tight font-semibold wrap-break-word text-gray-950">
                   {profile.display_name}
                 </h1>
               )}
@@ -744,7 +850,7 @@ function ProfileHeader({
                     setNameDraft(profile.display_name);
                     setEditingName(true);
                   }}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-blue-700"
+                  className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-blue-700"
                   aria-label="Редагувати ім'я"
                   title="Редагувати ім'я"
                 >
@@ -766,13 +872,13 @@ function ProfileHeader({
               inputType="email"
               onSave={(value) => onSave({ email: value })}
             />
-            <p className="mt-2 text-sm font-medium text-gray-700">
+            <p className="mt-2 text-sm font-medium wrap-break-word text-gray-700">
               {studyLine(profile)}
             </p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm wrap-break-word text-gray-500">
               {locationLine(profile)}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
               <EditableBadgeSelect
                 value={formatRole(profile.role_name)}
                 editValue={profile.role_id ? String(profile.role_id) : ''}
@@ -800,7 +906,7 @@ function ProfileHeader({
               onClick={onRequestEvict}
               disabled={evicting}
               className={
-                'self-start rounded-md border border-red-200 bg-red-50 ' +
+                'self-center rounded-md border border-red-200 bg-red-50 ' +
                 'px-3 py-2 text-sm font-semibold text-red-700 ' +
                 'hover:bg-red-100 disabled:opacity-60 md:self-end'
               }
@@ -865,7 +971,7 @@ function ProfileHeader({
                 <p className="text-xs font-medium tracking-wide text-gray-400 uppercase">
                   Факультет
                 </p>
-                <p className="mt-1 font-medium break-words text-gray-800">
+                <p className="mt-1 font-medium wrap-break-word text-gray-800">
                   {profile.faculty_name ?? 'Не вказано'}
                 </p>
               </div>
@@ -1015,7 +1121,7 @@ function EditableProfileField({
       </div>
 
       {!editing ? (
-        <p className="mt-2 overflow-hidden text-sm leading-6 break-words whitespace-pre-wrap text-gray-700">
+        <p className="mt-2 overflow-hidden text-sm leading-6 wrap-break-word whitespace-pre-wrap text-gray-700">
           {value || placeholder}
         </p>
       ) : (
@@ -1026,7 +1132,7 @@ function EditableProfileField({
               onChange={(event) => setDraft(event.target.value)}
               className={
                 'min-h-24 w-full rounded-md border border-gray-300 px-3 py-2 ' +
-                'resize-y text-sm break-words outline-none focus:border-blue-500 focus:ring-1 ' +
+                'resize-y text-sm wrap-break-word outline-none focus:border-blue-500 focus:ring-1 ' +
                 'focus:ring-blue-500'
               }
             />
@@ -1100,8 +1206,8 @@ function InlineEditableText({
 
   if (!editing) {
     return (
-      <div className="flex min-w-0 items-center gap-1">
-        <p className={`${className} min-w-0 truncate`}>
+      <div className="flex max-w-full min-w-0 items-start justify-center gap-1 sm:justify-start">
+        <p className={`${className} max-w-full min-w-0 break-all`}>
           {value || placeholder}
         </p>
         {canEdit && (
@@ -1118,15 +1224,15 @@ function InlineEditableText({
   }
 
   return (
-    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+    <div className="mt-2 flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
       <input
         type={inputType}
         value={draft}
         disabled={saving}
         onChange={(event) => setDraft(event.target.value)}
         className={
-          'min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm ' +
-          'outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+          'w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm ' +
+          'outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:w-auto'
         }
       />
       <InlineSaveCancel
@@ -1244,7 +1350,9 @@ function EditableInfoLine({
       </div>
 
       {!editing ? (
-        <p className="mt-1 font-medium break-words text-gray-800">{value}</p>
+        <p className="mt-1 font-medium wrap-break-word text-gray-800">
+          {value}
+        </p>
       ) : (
         <div className="mt-2 space-y-2">
           <select
@@ -1572,6 +1680,7 @@ function ProfileDetailsModal({
   const canManage = item
     ? canManageItem(currentUserId, currentRole, currentFloorId, item)
     : false;
+  const eventActionable = event ? isEventActionable(event) : false;
   const canCancel = item ? canManage && canCancelSocialItem(item) : false;
   const canEdit = item
     ? item.creator.id === currentUserId && canCancelSocialItem(item)
@@ -1631,10 +1740,7 @@ function ProfileDetailsModal({
                   {event.description}
                 </p>
                 <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
-                  <InfoItem
-                    label="Статус"
-                    value={formatSocialStatus(event.status)}
-                  />
+                  <InfoItem label="Статус" value={formatEventStatus(event)} />
                   <InfoItem
                     label="Початок"
                     value={formatDateTime(event.start_time)}
@@ -1656,6 +1762,39 @@ function ProfileDetailsModal({
                     }
                   />
                 </dl>
+                {event.participants && (
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold text-gray-700">
+                        Учасники
+                      </h3>
+                      <span className="text-xs font-medium text-gray-400">
+                        {event.participants.length}
+                      </span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto rounded-md border border-gray-100 bg-gray-50/60 p-2">
+                      <div className="flex flex-wrap gap-2">
+                        {event.participants.map((participant) => (
+                          <Link
+                            key={participant.id}
+                            to={`/profile/${participant.id}`}
+                            className={
+                              'flex items-center gap-2 rounded-full bg-white px-2 py-1 text-xs ' +
+                              'shadow-sm transition hover:bg-blue-50 hover:text-blue-700'
+                            }
+                          >
+                            <UserAvatar
+                              name={participant.display_name}
+                              photo={participant.photo}
+                              size={22}
+                            />
+                            {participant.display_name}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -1679,7 +1818,7 @@ function ProfileDetailsModal({
             )}
 
             <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">
-              {event && event.status === 'ACTIVE' && (
+              {event && eventActionable && (
                 <button
                   type="button"
                   onClick={() =>
@@ -1786,7 +1925,7 @@ function EventActivityCard({
         {formatDateTime(event.start_time)}
       </p>
       <p className="mt-2 text-xs font-medium text-violet-700">
-        {formatSocialStatus(event.status)}
+        {formatEventStatus(event)}
       </p>
       {(event.is_faculty_only || event.is_major_only) && (
         <p className="mt-2 text-xs font-medium text-blue-700">

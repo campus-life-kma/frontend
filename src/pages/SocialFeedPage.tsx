@@ -60,6 +60,9 @@ const ANNOUNCEMENT_ERROR_LABELS: Record<string, string> = {
   non_field_errors: 'Помилка',
 };
 
+/**
+ * Форматує дату та час у зручний для читання вигляд.
+ */
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat('uk-UA', {
     day: 'numeric',
@@ -69,6 +72,9 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+/**
+ * Форматує ліміт учасників для події (поточна кількість / максимальна).
+ */
 function formatParticipantLimit(event: SocialEvent): string {
   const count = event.participants?.length ?? event.participants_count ?? 0;
   return event.max_person > 0
@@ -76,9 +82,13 @@ function formatParticipantLimit(event: SocialEvent): string {
     : `${count} · необмежено`;
 }
 
+/**
+ * Перекладає системний статус події або запиту на українську мову.
+ */
 function formatSocialStatus(status: string): string {
   const labels: Record<string, string> = {
     ACTIVE: 'Активний',
+    FINISHED: 'Завершено',
     COMPLETED: 'Виконано',
     DONE: 'Виконано',
     CANCELLED: 'Скасовано',
@@ -86,6 +96,9 @@ function formatSocialStatus(status: string): string {
   return labels[status] ?? status;
 }
 
+/**
+ * Форматує опис цільової аудиторії оголошення.
+ */
 function formatAnnouncementTarget(announcement: Announcement): string {
   const labels: Record<string, string> = {
     GLOBAL: 'Для всього гуртожитку',
@@ -97,6 +110,10 @@ function formatAnnouncementTarget(announcement: Announcement): string {
   return labels[announcement.target_type] ?? 'Оголошення для вас';
 }
 
+/**
+ * Формує читабельний рядок локації для події на основі
+ * кімнати, поверху чи власного опису.
+ */
 function formatEventLocation(
   event: SocialEvent,
   floors: FloorListItem[]
@@ -119,28 +136,38 @@ function formatEventLocation(
   return 'Локацію не вказано';
 }
 
+/**
+ * Перетворює повний datetime рядок на формат дати (YYYY-MM-DD) для input.
+ */
 function toInputDate(value: string): string {
   return value ? value.slice(0, 10) : '';
 }
 
+/** Перевіряє, чи елемент стрічки є соціальною подією. */
 function isEvent(item: FeedItem): item is SocialEvent {
   return item.type === 'event';
 }
 
+/** Перевіряє, чи елемент стрічки є запитом на обмін (sharing request). */
 function isSharing(item: FeedItem): item is SocialSharingRequest {
   return item.type === 'sharing_request';
 }
 
+/** Перевіряє, чи можна скасувати або змінити статус елемента стрічки. */
 function canCancelSocialItem(item: FeedItem): boolean {
   return item.status === 'ACTIVE';
 }
 
+/** Перетворює тип стрічки UI на значення параметра для API. */
 function toApiFeedType(type: FeedType): 'all' | 'event' | 'sharing_request' {
   if (type === 'events') return 'event';
   if (type === 'sharing') return 'sharing_request';
   return 'all';
 }
 
+/**
+ * Нормалізує помилку загального API-запиту до текстового повідомлення.
+ */
 function normalizeError(error: unknown): string {
   if (
     typeof error === 'object' &&
@@ -158,6 +185,10 @@ function normalizeError(error: unknown): string {
   return 'Не вдалося виконати дію.';
 }
 
+/**
+ * Рекурсивно розгортає об'єкт помилок валідації API у плоский масив повідомлень
+ * за допомогою словника перекладів назв полів.
+ */
 function flattenErrorMessages(
   value: unknown,
   labels: Record<string, string> = {}
@@ -176,6 +207,10 @@ function flattenErrorMessages(
   return [];
 }
 
+/**
+ * Нормалізує помилку створення оголошення до текстового повідомлення
+ * з використанням локалізованих назв полів.
+ */
 function normalizeAnnouncementError(error: unknown): string {
   if (
     typeof error === 'object' &&
@@ -194,6 +229,10 @@ function normalizeAnnouncementError(error: unknown): string {
   return 'Не вдалося створити оголошення. Перевірте поля і спробуйте ще раз.';
 }
 
+/**
+ * Зчитує з localStorage список ID тимчасових оголошень,
+ * які користувач приховав.
+ */
 function readAcknowledgedTimedAnnouncements(storageKey: string | null) {
   if (!storageKey || typeof window === 'undefined') return new Set<number>();
 
@@ -206,6 +245,9 @@ function readAcknowledgedTimedAnnouncements(storageKey: string | null) {
   }
 }
 
+/**
+ * Зберігає в localStorage список ID прихованих тимчасових оголошень.
+ */
 function writeAcknowledgedTimedAnnouncements(
   storageKey: string | null,
   ids: Set<number>
@@ -215,6 +257,10 @@ function writeAcknowledgedTimedAnnouncements(
   localStorage.setItem(storageKey, JSON.stringify([...ids]));
 }
 
+/**
+ * Перевіряє, чи має користувач права на модерацію елемента
+ * (адмін — усюди, модератор — тільки на своєму поверсі).
+ */
 function canModerate(
   role: string | null | undefined,
   userFloorId: string | null | undefined,
@@ -225,6 +271,13 @@ function canModerate(
   return Boolean(itemFloorId && String(itemFloorId) === String(userFloorId));
 }
 
+/**
+ * Сторінка соціальної стрічки (Social Feed).
+ * Відображає стрічку активностей користувачів, яка містить оголошення про події
+ * та запити на обмін речами з можливістю пагінації та гнучкої фільтрації.
+ * Дозволяє приєднуватися до подій, завершувати власні запити на обмін,
+ * а модераторам — моделювати вміст стрічки.
+ */
 export default function SocialFeedPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -260,8 +313,8 @@ export default function SocialFeedPage() {
     (floor === 'mine' ? user?.floor_id : floor !== 'all' ? floor : null);
   const mapPath = mapFloorId ? `/?floorId=${mapFloorId}` : '/';
   const statisticsPath = mapFloorId
-    ? `/statistics?mapFloorId=${mapFloorId}`
-    : '/statistics';
+    ? `/management?mapFloorId=${mapFloorId}`
+    : '/management';
   const acknowledgedTimedStorageKey = user?.id
     ? `campus-life:acknowledged-timed-announcements:${user.id}`
     : null;
@@ -361,8 +414,7 @@ export default function SocialFeedPage() {
         if (!(start <= now && end >= now)) return false;
       }
       if (startDate && toInputDate(item.start_time) < startDate) return false;
-      if (endDate && toInputDate(item.start_time) > endDate) return false;
-      return true;
+      return !(endDate && toInputDate(item.start_time) > endDate);
     });
   }, [activeOnly, endDate, feedItems, q, startDate, type]);
 
@@ -955,7 +1007,7 @@ function AnnouncementCreateModal({
           )}
 
           {targetType === 'SPECIFIC_USERS' && (
-            <div className="flex min-h-[420px] flex-col gap-3 rounded-lg border border-gray-200 p-3 sm:min-h-[460px]">
+            <div className="flex min-h-105 flex-col gap-3 rounded-lg border border-gray-200 p-3 sm:min-h-115">
               <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
                 <label className="block text-sm font-medium text-gray-700">
                   Пошук адресата
@@ -1492,9 +1544,13 @@ function DetailsModal({
                       <div className="max-h-48 overflow-y-auto rounded-md border border-gray-100 bg-gray-50/60 p-2">
                         <div className="flex flex-wrap gap-2">
                           {event.participants.map((participant) => (
-                            <span
+                            <Link
                               key={participant.id}
-                              className="flex items-center gap-2 rounded-full bg-white px-2 py-1 text-xs shadow-sm"
+                              to={`/profile/${participant.id}`}
+                              className={
+                                'flex items-center gap-2 rounded-full bg-white px-2 py-1 text-xs ' +
+                                'shadow-sm transition hover:bg-blue-50 hover:text-blue-700'
+                              }
                             >
                               <UserAvatar
                                 name={participant.display_name}
@@ -1502,7 +1558,7 @@ function DetailsModal({
                                 size={22}
                               />
                               {participant.display_name}
-                            </span>
+                            </Link>
                           ))}
                         </div>
                       </div>

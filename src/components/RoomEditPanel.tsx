@@ -10,6 +10,7 @@ import {
 } from '../api/locations';
 import { getRoomTypes, getResourceTypes } from '../api/dictionaries';
 import ResourceTypeIcon from './ResourceTypeIcon';
+import ConfirmDialog from './UI/ConfirmDialog';
 
 const ROOM_TYPE_LABEL: Record<string, string> = {
   LIVING: 'Житлова',
@@ -34,12 +35,23 @@ const RESOURCE_TYPE_LABEL: Record<string, string> = {
   OTHER: 'Інше',
 };
 
+/**
+ * Властивості для компонента RoomEditPanel.
+ */
 interface RoomEditPanelProps {
+  /** Об'єкт кімнати, яку необхідно відредагувати. */
   room: RoomOnMap;
+  /** ID поверху, на якому знаходиться кімната. */
   floorId?: number | null;
+  /** Скасування процесу редагування. */
   onCancel: () => void;
 }
 
+/**
+ * Панель редагування властивостей кімнати та її внутрішніх ресурсів.
+ * Доступна адміністраторам. Дозволяє змінювати назву, тип та місткість кімнати,
+ * а також створювати, редагувати або видаляти ресурси цієї кімнати.
+ */
 export default function RoomEditPanel({
   room,
   floorId,
@@ -59,6 +71,8 @@ export default function RoomEditPanel({
   const [editingResourceId, setEditingResourceId] = useState<number | null>(
     null
   );
+  const [resourceToDelete, setResourceToDelete] = useState<number | null>(null);
+
   const [editResourceName, setEditResourceName] = useState('');
   const [editResourceType, setEditResourceType] = useState<number | ''>('');
   const [editResourceMaxPerson, setEditResourceMaxPerson] = useState(1);
@@ -76,7 +90,7 @@ export default function RoomEditPanel({
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      // Find roomType ID based on string
+      // Знаходимо ідентифікатор типу кімнати за рядком
       const selectedType = roomTypes?.find((rt) => rt.type === roomType);
       await updateRoom(room.id, {
         name: name.trim(),
@@ -376,16 +390,7 @@ export default function RoomEditPanel({
                         <button
                           type="button"
                           className="text-gray-400 hover:text-red-500"
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                'Ви впевнені, що хочете видалити цей ресурс? ' +
-                                  'Це призведе до скасування всіх активних бронювань.'
-                              )
-                            ) {
-                              deleteResourceMutation.mutate(resource.id);
-                            }
-                          }}
+                          onClick={() => setResourceToDelete(resource.id)}
                           disabled={deleteResourceMutation.isPending}
                         >
                           Видалити
@@ -490,9 +495,23 @@ export default function RoomEditPanel({
           className="flex-1 rounded-md bg-blue-600 py-2 text-center text-white hover:bg-blue-700 disabled:opacity-50"
           disabled={updateMutation.isPending || !name.trim()}
         >
-          {updateMutation.isPending ? 'Збереження...' : 'Зберегти'}
+          {updateMutation.isPending ? 'Зберігаємо...' : 'Зберегти'}
         </button>
       </div>
+
+      {resourceToDelete !== null && (
+        <ConfirmDialog
+          title="Видалити ресурс?"
+          description="Ви впевнені, що хочете видалити цей ресурс? Це призведе до скасування всіх активних бронювань."
+          confirmLabel="Видалити"
+          variant="danger"
+          onConfirm={() => {
+            deleteResourceMutation.mutate(resourceToDelete);
+            setResourceToDelete(null);
+          }}
+          onClose={() => setResourceToDelete(null)}
+        />
+      )}
     </div>
   );
 }

@@ -10,12 +10,21 @@ import UserAvatar from './UserAvatar';
 import ResourceTypeIcon from './ResourceTypeIcon';
 import { Link } from 'react-router-dom';
 import ConfirmDialog from './UI/ConfirmDialog';
+import AddResidentModal from './AddResidentModal';
 
+/**
+ * Властивості для компонента RoomDetailsPanel.
+ */
 interface RoomDetailsPanelProps {
+  /** Дані кімнати на карті або null, якщо жодна кімната не вибрана. */
   room: RoomOnMap | null;
+  /** Ідентифікатор поверху, до якого належить кімната. */
   floorId?: number | null;
+  /** Номер поверху. */
   floorNumber?: number | null;
+  /** Назва гуртожитку. */
   dormitoryName?: string | null;
+  /** Зворотний виклик (callback) після успішного видалення кімнати. */
   onRoomDeleted?: () => void;
 }
 
@@ -29,6 +38,9 @@ const ROOM_TYPE_LABEL: Record<string, string> = {
   STORAGE: 'Склад',
 };
 
+/**
+ * Допоміжна функція для отримання повідомлення про помилку з AxiosError.
+ */
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const detail = (error.response?.data as { detail?: string } | undefined)
@@ -38,6 +50,14 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Компонент бічної панелі з детальною інформацією про вибрану кімнату.
+ * Відображає назву, статус кімнати, список присутніх людей, активні події,
+ * перелік ресурсів (з посиланнями на бронювання).
+ * Надає модератору кнопки для блокування/розблокування або видалення кімнати,
+ * а звичайному користувачу — можливість відмітитись у кімнаті (check-in)
+ * або піти (go-home).
+ */
 export default function RoomDetailsPanel({
   room,
   floorId,
@@ -48,6 +68,7 @@ export default function RoomDetailsPanel({
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [addResidentModalOpen, setAddResidentModalOpen] = useState(false);
 
   const presenceQuery = useQuery({
     queryKey: ['presence-me'],
@@ -104,7 +125,12 @@ export default function RoomDetailsPanel({
   const presence = presenceQuery.data ?? null;
   const isHome = homeRoomId !== null && room.id === homeRoomId;
   const isPresentHere = presence?.room_id === room.id;
-  const isAway = presence !== null;
+  const isCurrentUserInRoom = room.current_users.some(
+    (currentRoomUser) => currentRoomUser.id === user?.id
+  );
+  const isAtHome = isHome && (isPresentHere || isCurrentUserInRoom);
+  const isCheckedInElsewhere = presence !== null && !isPresentHere;
+  const shouldShowGoHomeButton = !isAtHome && (!isHome || isCheckedInElsewhere);
 
   const presenceBusy = checkInMutation.isPending || goHomeMutation.isPending;
   const blockBusy = blockMutation.isPending || unblockMutation.isPending;
@@ -149,9 +175,21 @@ export default function RoomDetailsPanel({
       </header>
 
       <section>
-        <h3 className="mb-2 font-medium text-gray-700">
-          Зараз тут ({room.current_users.length})
-        </h3>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="font-medium text-gray-700">
+            Зараз тут ({room.current_users.length})
+          </h3>
+          {user?.role === 'ADMIN' &&
+            room.room_type === 'LIVING' &&
+            room.current_users.length < room.max_person && (
+              <button
+                onClick={() => setAddResidentModalOpen(true)}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800"
+              >
+                + Додати мешканця
+              </button>
+            )}
+        </div>
         {room.current_users.length === 0 ? (
           <p className="text-gray-400">Порожньо</p>
         ) : (
@@ -263,10 +301,10 @@ export default function RoomDetailsPanel({
             >
               {checkInMutation.isPending ? 'Продовжуємо…' : 'Продовжити'}
             </button>
-            {goHomeButton}
+            {shouldShowGoHomeButton && goHomeButton}
           </>
         ) : isHome ? (
-          isAway && goHomeButton
+          !isAtHome && isCheckedInElsewhere && goHomeButton
         ) : (
           !room.is_blocked && (
             <button
@@ -349,6 +387,13 @@ export default function RoomDetailsPanel({
           </p>
         )}
       </footer>
+
+      {addResidentModalOpen && (
+        <AddResidentModal
+          roomId={room.id}
+          onClose={() => setAddResidentModalOpen(false)}
+        />
+      )}
 
       {confirmDeleteOpen && (
         <ConfirmDialog

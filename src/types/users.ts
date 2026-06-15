@@ -1,8 +1,12 @@
 import type { UserOnMap } from './locations';
 
+/** Рівень освіти користувача. */
 export type EducationLevel = 'BACHELOR' | 'MASTER' | 'PHD';
+
+/** Тип посади або статусу навчання користувача. */
 export type Position = 'STUDENT' | 'TEACHER' | 'EMPLOYEE';
 
+/** Детальна інформація про профіль користувача. */
 export interface UserProfile {
   id: string;
   role_id: number | null;
@@ -26,17 +30,20 @@ export interface UserProfile {
   bio: string | null;
 }
 
+/** Соціальна подія в профілі користувача. */
 export interface UserProfileEvent {
   type: 'event';
   id: number;
   title: string;
   status: string;
   start_time: string;
+  end_time: string;
   creator: UserOnMap;
   is_faculty_only: boolean;
   is_major_only: boolean;
 }
 
+/** Запит на обмін речами в профілі користувача. */
 export interface UserProfileSharingRequest {
   type: 'sharing_request';
   id: number;
@@ -46,12 +53,14 @@ export interface UserProfileSharingRequest {
   created_at: string;
 }
 
+/** Список соціальної активності користувача. */
 export interface UserSocialActivity {
   sharing_requests: UserProfileSharingRequest[];
   created_events: UserProfileEvent[];
   participating_events: UserProfileEvent[];
 }
 
+/** Дані для оновлення профілю користувача. */
 export interface UserProfileUpdatePayload {
   full_name?: string;
   email?: string;

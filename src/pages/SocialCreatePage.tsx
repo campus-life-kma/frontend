@@ -19,12 +19,19 @@ import type {
 
 type CreateType = 'event' | 'sharing';
 
+/**
+ * Перетворює локальну дату/час на формат ISO 8601 для відправки на API.
+ */
 function toApiDateTime(value: string): string {
   const parsed = new Date(value);
   if (isNaN(parsed.getTime())) return new Date().toISOString();
   return parsed.toISOString();
 }
 
+/**
+ * Перетворює дату з API у локальний формат, сумісний з
+ * input type="datetime-local".
+ */
 function toLocalDateTimeInput(value: string): string {
   const date = new Date(value);
   const year = date.getFullYear();
@@ -50,6 +57,10 @@ const ERROR_FIELD_LABELS: Record<string, string> = {
   detail: '',
 };
 
+/**
+ * Рекурсивно розгортає об'єкт помилок валідації API у плоский
+ * масив повідомлень, підставляючи україномовні назви полів.
+ */
 function flattenErrorMessages(value: unknown): string[] {
   if (typeof value === 'string') return [value];
   if (Array.isArray(value)) return value.flatMap(flattenErrorMessages);
@@ -64,6 +75,9 @@ function flattenErrorMessages(value: unknown): string[] {
   return [];
 }
 
+/**
+ * Нормалізує помилку запиту Axios до об'єднаного текстового повідомлення.
+ */
 function normalizeError(error: unknown): string {
   if (
     typeof error === 'object' &&
@@ -80,6 +94,12 @@ function normalizeError(error: unknown): string {
   return 'Не вдалося опублікувати. Перевірте поля і спробуйте ще раз.';
 }
 
+/**
+ * Сторінка створення та редагування соціальних елементів.
+ * Дозволяє користувачам публікувати або змінювати оголошення про події (events)
+ * чи запити на позичання речей (sharing requests) з налаштуванням фільтрів
+ * одержувачів (факультет, спеціальність, поверх).
+ */
 export default function SocialCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -113,6 +133,8 @@ export default function SocialCreatePage() {
     custom_location: '',
   });
   const [sharingTitle, setSharingTitle] = useState('');
+  const canUseFacultyRestriction = Boolean(user?.faculty_id);
+  const canUseMajorRestriction = Boolean(user?.major_id);
 
   const floorsQuery = useQuery({
     queryKey: ['create-feed-floors', user?.dormitory_id],
@@ -297,8 +319,8 @@ export default function SocialCreatePage() {
       start_time: toApiDateTime(eventForm.start_time),
       end_time: toApiDateTime(eventForm.end_time),
       max_person: eventForm.has_limit ? Number(eventForm.max_person) || 1 : 0,
-      is_faculty_only: eventForm.is_faculty_only,
-      is_major_only: eventForm.is_major_only,
+      is_faculty_only: canUseFacultyRestriction && eventForm.is_faculty_only,
+      is_major_only: canUseMajorRestriction && eventForm.is_major_only,
       room: eventForm.room ? Number(eventForm.room) : null,
       floor: eventForm.floor ? Number(eventForm.floor) : null,
       custom_location: eventForm.custom_location.trim() || null,
@@ -576,36 +598,42 @@ export default function SocialCreatePage() {
                   }))
                 }
               />
-              <div className="flex flex-wrap gap-3">
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={eventForm.is_faculty_only}
-                    onChange={(event) =>
-                      setEventForm((form) => ({
-                        ...form,
-                        is_faculty_only: event.target.checked,
-                      }))
-                    }
-                    className="h-4 w-4 accent-blue-600"
-                  />
-                  Лише мій факультет
-                </label>
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={eventForm.is_major_only}
-                    onChange={(event) =>
-                      setEventForm((form) => ({
-                        ...form,
-                        is_major_only: event.target.checked,
-                      }))
-                    }
-                    className="h-4 w-4 accent-blue-600"
-                  />
-                  Лише моя спеціальність
-                </label>
-              </div>
+              {(canUseFacultyRestriction || canUseMajorRestriction) && (
+                <div className="flex flex-wrap gap-3">
+                  {canUseFacultyRestriction && (
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={eventForm.is_faculty_only}
+                        onChange={(event) =>
+                          setEventForm((form) => ({
+                            ...form,
+                            is_faculty_only: event.target.checked,
+                          }))
+                        }
+                        className="h-4 w-4 accent-blue-600"
+                      />
+                      Лише мій факультет
+                    </label>
+                  )}
+                  {canUseMajorRestriction && (
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={eventForm.is_major_only}
+                        onChange={(event) =>
+                          setEventForm((form) => ({
+                            ...form,
+                            is_major_only: event.target.checked,
+                          }))
+                        }
+                        className="h-4 w-4 accent-blue-600"
+                      />
+                      Лише моя спеціальність
+                    </label>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="mt-6">

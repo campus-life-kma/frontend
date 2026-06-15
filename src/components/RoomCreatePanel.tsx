@@ -29,13 +29,25 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Властивості для компонента RoomCreatePanel.
+ */
 interface RoomCreatePanelProps {
+  /** ID поверху, на якому створюється кімната. */
   floorId: number;
+  /** SVG-ідентифікатор елемента кімнати на карті поверху. */
   svgElementId: string;
+  /** Скасування процесу створення. */
   onCancel: () => void;
+  /** Зворотний виклик після успішного створення кімнати. */
   onCreated: (room: RoomOnMap) => void;
 }
 
+/**
+ * Панель створення нової кімнати модератором або адміністратором.
+ * Дозволяє вказати назву, тип кімнати, місткість та статус блокування.
+ * Прив'язує кімнату до вибраного неактивного елемента SVG-карти поверху.
+ */
 export default function RoomCreatePanel({
   floorId,
   svgElementId,

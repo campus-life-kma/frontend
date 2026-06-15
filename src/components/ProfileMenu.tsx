@@ -3,11 +3,22 @@ import { Link } from 'react-router-dom';
 import type { User } from '../types/auth';
 import UserAvatar from './UserAvatar';
 
+/**
+ * Властивості для компонента ProfileMenu.
+ */
 interface ProfileMenuProps {
+  /** Дані поточного авторизованого користувача. */
   user: User;
+  /** Обробник події виходу із системи. */
   onLogout: () => void;
 }
 
+/**
+ * Компонент меню профілю користувача.
+ * Відображає аватарку користувача, яка при кліку відкриває випадаюче меню
+ * з можливістю переходу до особистого профілю або виходу з акаунта.
+ * Закривається при кліку поза межами меню.
+ */
 export default function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
