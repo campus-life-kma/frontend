@@ -534,6 +534,7 @@ function StatisticsTab({ data }: { data: StatisticsSummary }) {
 export default function ManagementPage() {
   const user = useAuthStore((state) => state.user);
   const canSeeStatistics = user?.role === 'ADMIN' || user?.role === 'MODERATOR';
+  const canManageDormitory = user?.role === 'ADMIN';
   const [searchParams] = useSearchParams();
   const mapFloorId = searchParams.get('mapFloorId');
   const [activeTab, setActiveTab] = useState<
@@ -585,16 +586,18 @@ export default function ManagementPage() {
                 Мешканці
               </button>
 
-              <button
-                onClick={() => setActiveTab('dormitory')}
-                className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-                  activeTab === 'dormitory'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                Гуртожиток
-              </button>
+              {canManageDormitory && (
+                <button
+                  onClick={() => setActiveTab('dormitory')}
+                  className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'dormitory'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }`}
+                >
+                  Гуртожиток
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('statistics')}
                 className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
@@ -612,9 +615,11 @@ export default function ManagementPage() {
             <div className="mt-2">
               {activeTab === 'directory' && <DirectoryTab />}
 
-              {activeTab === 'dormitory' && user?.dormitory_id && (
-                <DormitoryTab dormitoryId={Number(user.dormitory_id)} />
-              )}
+              {activeTab === 'dormitory' &&
+                canManageDormitory &&
+                user?.dormitory_id && (
+                  <DormitoryTab dormitoryId={Number(user.dormitory_id)} />
+                )}
 
               {activeTab === 'statistics' && (
                 <>
