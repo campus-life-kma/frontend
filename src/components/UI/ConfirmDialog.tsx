@@ -72,7 +72,7 @@ export default function ConfirmDialog({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-70 flex items-center justify-center bg-gray-950/50 p-4 backdrop-blur-sm"
       onClick={() => {
         if (!isPending) onClose();
       }}

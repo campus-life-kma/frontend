@@ -1,5 +1,3 @@
-/* eslint-disable max-len */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Map, Pencil } from 'lucide-react';
@@ -33,10 +31,11 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
       queryClient.invalidateQueries({ queryKey: ['floors', dormitoryId] });
       setFloorToDelete(null);
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       setErrorMsg(
-        err?.response?.data?.detail ||
-          err.message ||
+        (err as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail ||
+          (err as Error).message ||
           'Помилка видалення поверху'
       );
       setFloorToDelete(null);
@@ -66,7 +65,11 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
         <button
           id="add-floor-button"
           onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
+          className={[
+            'flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm',
+            'font-medium text-white shadow-sm transition-colors hover:bg-blue-700',
+            'focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none',
+          ].join(' ')}
         >
           <Plus className="h-4 w-4" />
           Додати поверх
@@ -81,7 +84,10 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
             <div
               id={`floor-card-${floor.id}`}
               key={floor.id}
-              className="group flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+              className={[
+                'group flex flex-col overflow-hidden rounded-lg border border-gray-200',
+                'bg-white shadow-sm transition-shadow hover:shadow-md',
+              ].join(' ')}
             >
               <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 p-4">
                 <div className="flex items-center gap-2 text-gray-900">
@@ -95,7 +101,11 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
                     id={`edit-floor-map-button-${floor.id}`}
                     type="button"
                     onClick={() => setFloorToEdit(floor)}
-                    className="rounded-md p-1.5 text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:bg-blue-50 hover:text-blue-600 focus:opacity-100"
+                    className={[
+                      'rounded-md p-1.5 text-gray-400 opacity-0 transition-colors',
+                      'group-hover:opacity-100 hover:bg-blue-50 hover:text-blue-600',
+                      'focus:opacity-100',
+                    ].join(' ')}
                     title="Редагувати мапу поверху"
                     aria-label={`Редагувати мапу ${floor.number} поверху`}
                   >
@@ -105,7 +115,11 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
                     id={`delete-floor-button-${floor.id}`}
                     type="button"
                     onClick={() => setFloorToDelete(floor.id)}
-                    className="rounded-md p-1.5 text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 focus:opacity-100"
+                    className={[
+                      'rounded-md p-1.5 text-gray-400 opacity-0 transition-colors',
+                      'group-hover:opacity-100 hover:bg-red-50 hover:text-red-600',
+                      'focus:opacity-100',
+                    ].join(' ')}
                     title="Видалити поверх"
                     aria-label={`Видалити ${floor.number} поверх`}
                   >
@@ -113,7 +127,7 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
                   </button>
                 </div>
               </div>
-              <div className="flex flex-grow items-center justify-center bg-gray-50 p-4">
+              <div className="flex grow items-center justify-center bg-gray-50 p-4">
                 {floor.map_file ? (
                   <img
                     src={floor.map_file}
@@ -142,7 +156,10 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
           <button
             id="add-first-floor-button"
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
+            className={[
+              'inline-flex items-center gap-2 text-sm font-medium text-blue-600',
+              'transition-colors hover:text-blue-700',
+            ].join(' ')}
           >
             <Plus className="h-4 w-4" />
             Додати перший поверх
@@ -169,7 +186,8 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
       {floorToDelete !== null && (
         <ConfirmDialog
           title="Видалити поверх"
-          description="Ви впевнені, що хочете видалити цей поверх? Цю дію неможливо скасувати. Видалення буде заборонено, якщо на поверсі існують кімнати."
+          description={`Ви впевнені, що хочете видалити цей поверх? Цю дію неможливо скасувати.
+            Видалення буде заборонено, якщо на поверсі існують кімнати.`}
           confirmLabel="Видалити"
           cancelLabel="Скасувати"
           variant="danger"

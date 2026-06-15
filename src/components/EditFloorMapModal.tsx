@@ -4,6 +4,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { updateFloorMap } from '../api/locations';
 
+/**
+ * Властивості компонента EditFloorMapModal.
+ */
 interface EditFloorMapModalProps {
   floorId: number;
   floorNumber: number;
@@ -12,6 +15,9 @@ interface EditFloorMapModalProps {
   onClose: () => void;
 }
 
+/**
+ * Витягує повідомлення про помилку з об'єкта помилки (AxiosError або Error).
+ */
 function getErrorMessage(error: unknown): string {
   if (
     typeof error === 'object' &&
@@ -32,6 +38,9 @@ function getErrorMessage(error: unknown): string {
   return 'Не вдалося оновити мапу поверху.';
 }
 
+/**
+ * Модальне вікно для редагування (завантаження нової) мапи поверху (SVG).
+ */
 const EditFloorMapModal: React.FC<EditFloorMapModalProps> = ({
   floorId,
   floorNumber,
@@ -208,7 +217,7 @@ const EditFloorMapModal: React.FC<EditFloorMapModalProps> = ({
               type="submit"
               disabled={mutation.isPending || !file}
               className={
-                'flex min-w-[112px] items-center justify-center rounded-md border border-transparent ' +
+                'flex min-w-28 items-center justify-center rounded-md border border-transparent ' +
                 'bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors ' +
                 'hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ' +
                 'focus:outline-none disabled:cursor-not-allowed disabled:bg-blue-400'

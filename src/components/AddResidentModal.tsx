@@ -1,4 +1,3 @@
-/* eslint-disable max-len */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -8,11 +7,18 @@ import { getAnnouncementRecipients } from '../api/announcements';
 import UserAvatar from './UserAvatar';
 import type { AnnouncementRecipient } from '../types/announcements';
 
+/**
+ * Властивості компонента AddResidentModal.
+ */
 interface AddResidentModalProps {
   roomId: number;
   onClose: () => void;
 }
 
+/**
+ * Витягує текст повідомлення про помилку з об'єкта помилки API
+ * (AxiosError або звичайного Error).
+ */
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as
@@ -27,6 +33,11 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Модальне вікно для додавання жителя до кімнати.
+ * Дозволяє створити нового користувача або вибрати існуючого
+ * та поселити його у вказану кімнату.
+ */
 export default function AddResidentModal({
   roomId,
   onClose,
@@ -165,7 +176,10 @@ export default function AddResidentModal({
                   <select
                     value={position}
                     onChange={(e) => setPosition(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 outline-none focus:border-blue-500"
+                    className={[
+                      'w-full rounded-md border border-gray-300 bg-white px-3 py-2',
+                      'outline-none focus:border-blue-500',
+                    ].join(' ')}
                   >
                     <option value="STUDENT">Студент</option>
                     <option value="TEACHER">Викладач</option>
@@ -179,7 +193,10 @@ export default function AddResidentModal({
                   <select
                     value={selectedRoleId}
                     onChange={(e) => setRoleId(Number(e.target.value))}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 outline-none focus:border-blue-500"
+                    className={[
+                      'w-full rounded-md border border-gray-300 bg-white px-3 py-2',
+                      'outline-none focus:border-blue-500',
+                    ].join(' ')}
                   >
                     <option value="" disabled>
                       Завантаження ролей...
@@ -211,7 +228,7 @@ export default function AddResidentModal({
                   className="w-full rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
                 />
 
-                <div className="flex max-h-[300px] min-h-[300px] flex-col gap-2 overflow-y-auto pr-1">
+                <div className="flex max-h-75 min-h-75 flex-col gap-2 overflow-y-auto pr-1">
                   {existingUsersQuery.isLoading ||
                   existingUsersQuery.isFetching ? (
                     <div className="flex h-full items-center justify-center">

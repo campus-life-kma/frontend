@@ -52,6 +52,9 @@ import type {
 type ActivityTab = 'hosted' | 'going';
 type HostedItem = UserProfileEvent | UserProfileSharingRequest;
 
+/**
+ * Форматує дату та час у зручний для читання вигляд.
+ */
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat('uk-UA', {
     day: 'numeric',
@@ -61,6 +64,11 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+/**
+ * Форматує часовий інтервал бронювання.
+ * Замінює дати "сьогодні" або "завтра" на відповідні слова
+ * для кращої читабельності.
+ */
 function formatBookingTime(startValue: string, endValue: string): string {
   const start = new Date(startValue);
   const end = new Date(endValue);
@@ -90,6 +98,9 @@ function formatBookingTime(startValue: string, endValue: string): string {
   return `${day}, ${time.format(start)} - ${time.format(end)}`;
 }
 
+/**
+ * Перекладає системну роль користувача на українську мову.
+ */
 function formatRole(role: string | null): string {
   const labels: Record<string, string> = {
     ADMIN: 'Адміністрація',
@@ -99,6 +110,10 @@ function formatRole(role: string | null): string {
   return role ? (labels[role] ?? role) : 'Мешканець';
 }
 
+/**
+ * Перекладає посаду/статус користувача (студент, викладач тощо)
+ * на українську мову.
+ */
 function formatPosition(position: string): string {
   const labels: Record<string, string> = {
     STUDENT: 'Студент',
@@ -108,6 +123,9 @@ function formatPosition(position: string): string {
   return labels[position] ?? 'Студент';
 }
 
+/**
+ * Перекладає освітній ступінь (бакалавр, магістр, аспірант) на українську мову.
+ */
 function formatEducationLevel(
   level: EducationLevel | null | undefined
 ): string {
@@ -120,6 +138,9 @@ function formatEducationLevel(
   return labels[level] ?? '';
 }
 
+/**
+ * Форматує рядок курсу/року навчання залежно від освітнього ступеня.
+ */
 function formatStudyYear(
   educationLevel: EducationLevel | null | undefined,
   year: string | number | null | undefined
@@ -132,12 +153,16 @@ function formatStudyYear(
   return `${numericYear} курс`;
 }
 
+/** Допоміжна функція для відмінювання слова "рік" */
 function formatYearWord(year: number): string {
   if (year === 1) return 'рік';
   if (year >= 2 && year <= 4) return 'рік';
   return 'рік';
 }
 
+/**
+ * Перекладає системний статус події або запиту на українську мову.
+ */
 function formatSocialStatus(status: string): string {
   const labels: Record<string, string> = {
     ACTIVE: 'Активний',
@@ -152,6 +177,10 @@ function hasValue(value: string | number | null | undefined): boolean {
   return value !== null && value !== undefined && String(value).trim() !== '';
 }
 
+/**
+ * Будує рядок з інформацією про місце проживання користувача
+ * (гуртожиток, поверх, кімната).
+ */
 function locationLine(profile: UserProfile): string {
   const parts = [
     profile.dormitory_name,
@@ -162,6 +191,10 @@ function locationLine(profile: UserProfile): string {
   return parts.length > 0 ? parts.join(' • ') : 'Локацію не вказано';
 }
 
+/**
+ * Будує рядок з інформацією про навчання або посаду користувача
+ * (наприклад, "ФІ / Комп'ютерні науки / Бакалавр / 3 курс" або "Викладач").
+ */
 function studyLine(profile: UserProfile): string {
   if (profile.position === 'EMPLOYEE') {
     return 'Працівник університету';
@@ -181,10 +214,17 @@ function studyLine(profile: UserProfile): string {
   return parts.length > 0 ? parts.join(' / ') : 'Навчальні дані не вказані';
 }
 
+/**
+ * Перевіряє, чи об'єкт активності (HostedItem) є соціальною подією
+ * (а не запитом на обмін).
+ */
 function isEventItem(item: HostedItem): item is UserProfileEvent {
   return item.type === 'event';
 }
 
+/**
+ * Нормалізує помилку з API для виведення в інтерфейсі користувача.
+ */
 function normalizeError(error: unknown): string {
   if (
     typeof error === 'object' &&
@@ -211,6 +251,10 @@ function normalizeError(error: unknown): string {
   return 'Не вдалося виконати дію.';
 }
 
+/**
+ * Перевіряє, чи має користувач права на редагування або видалення елемента
+ * (свої елементи, адмін — усі, модератор — на своєму поверсі).
+ */
 function canManageItem(
   currentUserId: string | null | undefined,
   currentRole: string | null | undefined,

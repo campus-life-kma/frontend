@@ -25,12 +25,18 @@ import { useAuthStore } from '../store/authStore';
 import type { Booking, ResourceScheduleBooking } from '../types/bookings';
 import type { ResourceOnMap, RoomOnMap, UserOnMap } from '../types/locations';
 
+/** Кількість днів наперед для завантаження розкладу. */
 const DAYS_AHEAD = 30;
+/** Кількість хвилин в одному дні. */
 const MINUTES_IN_DAY = 24 * 60;
+/** Масштаб відображення: кількість пікселів на одну хвилину. */
 const PX_PER_MINUTE = 1;
+/** Тривалість одного слоту бронювання за замовчуванням. */
 const SLOT_MINUTES = 30;
+/** Максимальна тривалість одного бронювання (3 години). */
 const MAX_BOOKING_MINUTES = 3 * 60;
 
+/** Стан розташування ресурсу, який передається через Router location.state. */
 interface ResourceLocationState {
   resource?: ResourceOnMap;
   room?: RoomOnMap;
@@ -39,6 +45,7 @@ interface ResourceLocationState {
   dormitoryName?: string | null;
 }
 
+/** Контекст ресурсу (повні дані, отримані з API або location.state). */
 interface ResourceContext {
   resource: ResourceOnMap;
   room: RoomOnMap;
@@ -47,6 +54,7 @@ interface ResourceContext {
   dormitoryName: string;
 }
 
+/** Структура для відображення бронювання на часовій шкалі. */
 interface TimelineBooking {
   id: number;
   start: Date;
@@ -57,6 +65,7 @@ interface TimelineBooking {
   source: ResourceScheduleBooking | Booking;
 }
 
+/** Драфт нового бронювання, що створюється користувачем. */
 interface BookingDraft {
   day: string;
   start: string;
@@ -64,6 +73,11 @@ interface BookingDraft {
   lane: number;
 }
 
+/**
+ * Отримує початок місцевого дня для вказаної дати.
+ * @param date Дата.
+ * @returns Дата, що відповідає початку дня (00:00:00).
+ */
 function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -144,10 +158,19 @@ function formatTimeRange(start: Date, end: Date): string {
   return `${toTimeValue(start)} - ${toTimeValue(end)}`;
 }
 
+/**
+ * Перевіряє, чи перетинаються два часових інтервали.
+ * @returns true, якщо інтервали перетинаються.
+ */
 function overlaps(startA: Date, endA: Date, startB: Date, endB: Date): boolean {
   return startA < endB && endA > startB;
 }
 
+/**
+ * Нормалізує помилку API до зрозумілого текстового повідомлення.
+ * @param error Об'єкт помилки.
+ * @returns Текст помилки для відображення.
+ */
 function normalizeError(error: unknown): string {
   if (
     typeof error === 'object' &&
@@ -165,14 +188,19 @@ function normalizeError(error: unknown): string {
   return 'Не вдалося виконати дію. Спробуйте ще раз.';
 }
 
+/** Перевіряє чи користувач є адміністратором. */
 function isAdmin(role: string | null | undefined): boolean {
   return role === 'ADMIN';
 }
 
+/** Перевіряє чи користувач є модератором або адміністратором. */
 function isModerator(role: string | null | undefined): boolean {
   return role === 'MODERATOR' || role === 'ADMIN';
 }
 
+/**
+ * Перетворює запис розкладу з API у внутрішній формат TimelineBooking.
+ */
 function mapScheduleBooking(
   booking: ResourceScheduleBooking,
   currentUserBooking?: Booking
@@ -189,6 +217,13 @@ function mapScheduleBooking(
   };
 }
 
+/**
+ * Розподіляє бронювання по паралельних "доріжках" (ланках)
+ * для візуального відображення перехресних подій.
+ * @param bookings Список бронювань для розподілу.
+ * @param capacity Максимальна кількість доступних доріжок (місткість ресурсу).
+ * @returns Той самий список бронювань з призначеними lane.
+ */
 function assignLanes(
   bookings: TimelineBooking[],
   capacity: number

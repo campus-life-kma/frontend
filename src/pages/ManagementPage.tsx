@@ -17,6 +17,9 @@ import type {
   TopResourceStatistics,
 } from '../types/statistics';
 
+/**
+ * Перекладає системну роль користувача на українську мову.
+ */
 function formatRole(role: string | null): string {
   const labels: Record<string, string> = {
     ADMIN: 'Адміністратор',
@@ -26,6 +29,10 @@ function formatRole(role: string | null): string {
   return role ? (labels[role] ?? role) : 'Роль не вказана';
 }
 
+/**
+ * Будує заголовок для поточної області статистики
+ * (наприклад, "5 поверх" або назва гуртожитку).
+ */
 function scopeTitle(data: StatisticsSummary): string {
   if (data.scope.type === 'FLOOR') {
     return `${data.scope.floor_number} поверх`;
@@ -33,6 +40,9 @@ function scopeTitle(data: StatisticsSummary): string {
   return data.scope.dormitory_name ?? 'Гуртожиток';
 }
 
+/**
+ * Обчислює відсоток частини від цілого, повертаючи ціле число.
+ */
 function percentage(part: number, total: number): number {
   if (total <= 0) return 0;
   return Math.round((part / total) * 100);
@@ -130,14 +140,18 @@ function DirectoryTab() {
               placeholder="Пошук мешканців..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              // eslint-disable-next-line max-len
-              className={`w-full rounded-md border border-gray-300 py-2 pr-4 pl-9 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none`}
+              className={[
+                'w-full rounded-md border border-gray-300 py-2 pr-4 pl-9',
+                'text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none',
+              ].join(' ')}
             />
           </div>
           <button
             onClick={exportToCsv}
-            // eslint-disable-next-line max-len
-            className={`flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100`}
+            className={[
+              'flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-2 text-sm',
+              'font-medium text-emerald-700 transition-colors hover:bg-emerald-100',
+            ].join(' ')}
           >
             <Download className="h-4 w-4" />
             Експорт у CSV
@@ -148,8 +162,10 @@ function DirectoryTab() {
           <Filter className="hidden h-4 w-4 shrink-0 text-gray-400 sm:block" />
 
           <select
-            // eslint-disable-next-line max-len
-            className={`rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3 text-sm focus:border-blue-500 focus:ring-blue-500`}
+            className={[
+              'rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3',
+              'text-sm focus:border-blue-500 focus:ring-blue-500',
+            ].join(' ')}
             value={positionFilter}
             onChange={(e) => setPositionFilter(e.target.value)}
           >
@@ -160,8 +176,10 @@ function DirectoryTab() {
           </select>
 
           <select
-            // eslint-disable-next-line max-len
-            className={`rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3 text-sm focus:border-blue-500 focus:ring-blue-500`}
+            className={[
+              'rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3',
+              'text-sm focus:border-blue-500 focus:ring-blue-500',
+            ].join(' ')}
             value={activeFilter}
             onChange={(e) => setActiveFilter(e.target.value)}
           >
@@ -173,8 +191,10 @@ function DirectoryTab() {
           {user?.role === 'ADMIN' && (
             <>
               <select
-                // eslint-disable-next-line max-len
-                className={`rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3 text-sm focus:border-blue-500 focus:ring-blue-500`}
+                className={[
+                  'rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3',
+                  'text-sm focus:border-blue-500 focus:ring-blue-500',
+                ].join(' ')}
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
               >
@@ -185,8 +205,10 @@ function DirectoryTab() {
               </select>
 
               <select
-                // eslint-disable-next-line max-len
-                className={`rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3 text-sm focus:border-blue-500 focus:ring-blue-500`}
+                className={[
+                  'rounded-md border border-gray-300 bg-white py-1.5 pr-8 pl-3',
+                  'text-sm focus:border-blue-500 focus:ring-blue-500',
+                ].join(' ')}
                 value={floorFilter}
                 onChange={(e) => setFloorFilter(e.target.value)}
               >
@@ -257,7 +279,12 @@ function DirectoryTab() {
                           <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
                             {u.display_name}
                             {!u.is_activated && (
-                              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                              <span
+                                className={[
+                                  'rounded bg-gray-100 px-1.5 py-0.5 text-[10px]',
+                                  'font-medium text-gray-600',
+                                ].join(' ')}
+                              >
                                 НЕАКТИВНИЙ
                               </span>
                             )}
@@ -269,8 +296,10 @@ function DirectoryTab() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col items-start gap-1">
                         <span
-                          // eslint-disable-next-line max-len
-                          className={`inline-flex w-fit rounded-full bg-blue-100 px-2 text-xs leading-5 font-semibold text-blue-800`}
+                          className={[
+                            'inline-flex w-fit rounded-full bg-blue-100 px-2',
+                            'text-xs leading-5 font-semibold text-blue-800',
+                          ].join(' ')}
                         >
                           {formatRole(u.role_name)}
                         </span>

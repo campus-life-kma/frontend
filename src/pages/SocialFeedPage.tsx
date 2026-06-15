@@ -60,6 +60,9 @@ const ANNOUNCEMENT_ERROR_LABELS: Record<string, string> = {
   non_field_errors: 'Помилка',
 };
 
+/**
+ * Форматує дату та час у зручний для читання вигляд.
+ */
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat('uk-UA', {
     day: 'numeric',
@@ -69,6 +72,9 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+/**
+ * Форматує ліміт учасників для події (поточна кількість / максимальна).
+ */
 function formatParticipantLimit(event: SocialEvent): string {
   const count = event.participants?.length ?? event.participants_count ?? 0;
   return event.max_person > 0
@@ -76,6 +82,9 @@ function formatParticipantLimit(event: SocialEvent): string {
     : `${count} · необмежено`;
 }
 
+/**
+ * Перекладає системний статус події або запиту на українську мову.
+ */
 function formatSocialStatus(status: string): string {
   const labels: Record<string, string> = {
     ACTIVE: 'Активний',
@@ -86,6 +95,9 @@ function formatSocialStatus(status: string): string {
   return labels[status] ?? status;
 }
 
+/**
+ * Форматує опис цільової аудиторії оголошення.
+ */
 function formatAnnouncementTarget(announcement: Announcement): string {
   const labels: Record<string, string> = {
     GLOBAL: 'Для всього гуртожитку',
@@ -97,6 +109,10 @@ function formatAnnouncementTarget(announcement: Announcement): string {
   return labels[announcement.target_type] ?? 'Оголошення для вас';
 }
 
+/**
+ * Формує читабельний рядок локації для події на основі
+ * кімнати, поверху чи власного опису.
+ */
 function formatEventLocation(
   event: SocialEvent,
   floors: FloorListItem[]
@@ -119,28 +135,38 @@ function formatEventLocation(
   return 'Локацію не вказано';
 }
 
+/**
+ * Перетворює повний datetime рядок на формат дати (YYYY-MM-DD) для input.
+ */
 function toInputDate(value: string): string {
   return value ? value.slice(0, 10) : '';
 }
 
+/** Перевіряє, чи елемент стрічки є соціальною подією. */
 function isEvent(item: FeedItem): item is SocialEvent {
   return item.type === 'event';
 }
 
+/** Перевіряє, чи елемент стрічки є запитом на обмін (sharing request). */
 function isSharing(item: FeedItem): item is SocialSharingRequest {
   return item.type === 'sharing_request';
 }
 
+/** Перевіряє, чи можна скасувати або змінити статус елемента стрічки. */
 function canCancelSocialItem(item: FeedItem): boolean {
   return item.status === 'ACTIVE';
 }
 
+/** Перетворює тип стрічки UI на значення параметра для API. */
 function toApiFeedType(type: FeedType): 'all' | 'event' | 'sharing_request' {
   if (type === 'events') return 'event';
   if (type === 'sharing') return 'sharing_request';
   return 'all';
 }
 
+/**
+ * Нормалізує помилку загального API-запиту до текстового повідомлення.
+ */
 function normalizeError(error: unknown): string {
   if (
     typeof error === 'object' &&
@@ -158,6 +184,10 @@ function normalizeError(error: unknown): string {
   return 'Не вдалося виконати дію.';
 }
 
+/**
+ * Рекурсивно розгортає об'єкт помилок валідації API у плоский масив повідомлень
+ * за допомогою словника перекладів назв полів.
+ */
 function flattenErrorMessages(
   value: unknown,
   labels: Record<string, string> = {}
@@ -176,6 +206,10 @@ function flattenErrorMessages(
   return [];
 }
 
+/**
+ * Нормалізує помилку створення оголошення до текстового повідомлення
+ * з використанням локалізованих назв полів.
+ */
 function normalizeAnnouncementError(error: unknown): string {
   if (
     typeof error === 'object' &&
@@ -194,6 +228,10 @@ function normalizeAnnouncementError(error: unknown): string {
   return 'Не вдалося створити оголошення. Перевірте поля і спробуйте ще раз.';
 }
 
+/**
+ * Зчитує з localStorage список ID тимчасових оголошень,
+ * які користувач приховав.
+ */
 function readAcknowledgedTimedAnnouncements(storageKey: string | null) {
   if (!storageKey || typeof window === 'undefined') return new Set<number>();
 
@@ -206,6 +244,9 @@ function readAcknowledgedTimedAnnouncements(storageKey: string | null) {
   }
 }
 
+/**
+ * Зберігає в localStorage список ID прихованих тимчасових оголошень.
+ */
 function writeAcknowledgedTimedAnnouncements(
   storageKey: string | null,
   ids: Set<number>
@@ -215,6 +256,10 @@ function writeAcknowledgedTimedAnnouncements(
   localStorage.setItem(storageKey, JSON.stringify([...ids]));
 }
 
+/**
+ * Перевіряє, чи має користувач права на модерацію елемента
+ * (адмін — усюди, модератор — тільки на своєму поверсі).
+ */
 function canModerate(
   role: string | null | undefined,
   userFloorId: string | null | undefined,

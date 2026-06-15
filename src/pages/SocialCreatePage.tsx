@@ -19,12 +19,19 @@ import type {
 
 type CreateType = 'event' | 'sharing';
 
+/**
+ * Перетворює локальну дату/час на формат ISO 8601 для відправки на API.
+ */
 function toApiDateTime(value: string): string {
   const parsed = new Date(value);
   if (isNaN(parsed.getTime())) return new Date().toISOString();
   return parsed.toISOString();
 }
 
+/**
+ * Перетворює дату з API у локальний формат, сумісний з
+ * input type="datetime-local".
+ */
 function toLocalDateTimeInput(value: string): string {
   const date = new Date(value);
   const year = date.getFullYear();
@@ -50,6 +57,10 @@ const ERROR_FIELD_LABELS: Record<string, string> = {
   detail: '',
 };
 
+/**
+ * Рекурсивно розгортає об'єкт помилок валідації API у плоский
+ * масив повідомлень, підставляючи україномовні назви полів.
+ */
 function flattenErrorMessages(value: unknown): string[] {
   if (typeof value === 'string') return [value];
   if (Array.isArray(value)) return value.flatMap(flattenErrorMessages);
@@ -64,6 +75,9 @@ function flattenErrorMessages(value: unknown): string[] {
   return [];
 }
 
+/**
+ * Нормалізує помилку запиту Axios до об'єднаного текстового повідомлення.
+ */
 function normalizeError(error: unknown): string {
   if (
     typeof error === 'object' &&
