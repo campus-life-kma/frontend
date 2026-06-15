@@ -1,10 +1,10 @@
 import { useState, type SyntheticEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import axios from 'axios';
 import { devLogin } from '../api/auth';
 import { msalLoginRequest } from '../api/msal-config';
-import { APP_TITLE } from '../constants/app';
+
 import { useAuthStore } from '../store/authStore';
 
 /**
@@ -79,9 +79,13 @@ export default function LoginPage() {
         id="login-card"
         className="w-full max-w-md rounded-xl bg-white p-8 shadow-md"
       >
-        <h1 className="mb-2 text-center text-2xl font-semibold text-gray-900">
-          <Link to="/">{APP_TITLE}</Link>
-        </h1>
+        <div className="mb-4 flex justify-center">
+          <img
+            src="/logo.png"
+            alt="Campus Life Logo"
+            className="h-32 w-auto object-contain"
+          />
+        </div>
         <p className="mb-6 text-center text-sm text-gray-500">
           Увійдіть, щоб продовжити
         </p>
