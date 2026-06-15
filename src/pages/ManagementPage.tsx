@@ -48,9 +48,6 @@ function percentage(part: number, total: number): number {
   return Math.round((part / total) * 100);
 }
 
-// ==========================================
-// Directory Tab
-// ==========================================
 function DirectoryTab() {
   const user = useAuthStore((state) => state.user);
   const [search, setSearch] = useState('');
@@ -390,7 +387,7 @@ function StatisticsTab({ data }: { data: StatisticsSummary }) {
             <p className="text-xs font-semibold tracking-wide text-blue-700 uppercase">
               {formatRole(data.scope.role)}
             </p>
-            <h1 className="mt-1 text-2xl font-semibold break-words text-gray-950">
+            <h1 className="mt-1 text-2xl font-semibold wrap-break-word text-gray-950">
               Статистика: {scopeTitle(data)}
             </h1>
           </div>
@@ -479,7 +476,7 @@ function StatisticsTab({ data }: { data: StatisticsSummary }) {
             Ефективність модераторів (Блокування)
           </h2>
           <div className="overflow-x-auto">
-            <table className="min-w-[42rem] divide-y divide-gray-200 text-sm">
+            <table className="min-w-2xl divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-2 text-left font-medium text-gray-500">
@@ -532,15 +529,17 @@ function StatisticsTab({ data }: { data: StatisticsSummary }) {
   );
 }
 
-// ==========================================
 // Main Page Component
-// ==========================================
 export default function ManagementPage() {
   const user = useAuthStore((state) => state.user);
+  // Доступ до статистики мають Адміністратори та Модератори
   const canSeeStatistics = user?.role === 'ADMIN' || user?.role === 'MODERATOR';
+  // Керування гуртожитком (фізичною структурою) доступне Адміністраторам
   const canManageDormitory = user?.role === 'ADMIN';
   const [searchParams] = useSearchParams();
   const mapFloorId = searchParams.get('mapFloorId');
+  // Вкладка за замовчуванням завжди "directory" (Мешканці), щоб уникнути
+  // доступу до "dormitory" для модераторів (які не мають на це прав)
   const [activeTab, setActiveTab] = useState<
     'directory' | 'statistics' | 'dormitory'
   >('directory');
@@ -574,7 +573,7 @@ export default function ManagementPage() {
         statisticsPath={statisticsPath}
       />
 
-      <main className="mx-auto flex w-full max-w-[95rem] flex-col gap-5 px-4 py-5 sm:px-6">
+      <main className="mx-auto flex w-full max-w-380 flex-col gap-5 px-4 py-5 sm:px-6">
         {!canSeeStatistics && (
           <StatePanel
             title="Доступ заборонено"
@@ -588,6 +587,7 @@ export default function ManagementPage() {
             <div
               className={`grid w-full ${tabsGridClass} border-b border-gray-200`}
             >
+              {/* Вкладка Мешканці доступна і Адміністраторам, і Модераторам */}
               <button
                 onClick={() => setActiveTab('directory')}
                 className={`${tabBaseClass} ${
@@ -598,6 +598,7 @@ export default function ManagementPage() {
                 <span className="truncate">Мешканці</span>
               </button>
 
+              {/* Вкладка Гуртожиток рендериться ТІЛЬКИ для Адміністраторів */}
               {canManageDormitory && (
                 <button
                   onClick={() => setActiveTab('dormitory')}
@@ -610,6 +611,7 @@ export default function ManagementPage() {
                   <span className="truncate">Гуртожиток</span>
                 </button>
               )}
+              {/* Вкладка Статистика доступна Адміністраторам і Модераторам */}
               <button
                 onClick={() => setActiveTab('statistics')}
                 className={`${tabBaseClass} ${
@@ -655,9 +657,7 @@ export default function ManagementPage() {
   );
 }
 
-// ==========================================
 // Helper Components
-// ==========================================
 function StatePanel({ title, text }: { title: string; text?: string }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6 text-center shadow-sm sm:p-10">
@@ -704,10 +704,10 @@ function MetricCard({
       >
         {value}
       </div>
-      <h2 className="mt-3 text-sm font-semibold break-words text-gray-950">
+      <h2 className="mt-3 text-sm font-semibold wrap-break-word text-gray-950">
         {label}
       </h2>
-      <p className="mt-1 text-sm break-words text-gray-500">{detail}</p>
+      <p className="mt-1 text-sm wrap-break-word text-gray-500">{detail}</p>
     </article>
   );
 }
@@ -715,7 +715,7 @@ function MetricCard({
 function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <h2 className="text-base font-semibold break-words text-gray-950">
+      <h2 className="text-base font-semibold wrap-break-word text-gray-950">
         {title}
       </h2>
       <div className="mt-4 min-w-0">{children}</div>
@@ -731,7 +731,7 @@ function StatsRows({ rows }: { rows: Array<[string, number]> }) {
           key={label}
           className="flex min-w-0 items-center justify-between gap-4 py-2"
         >
-          <span className="min-w-0 text-sm break-words text-gray-600">
+          <span className="min-w-0 text-sm wrap-break-word text-gray-600">
             {label}
           </span>
           <span className="shrink-0 text-sm font-semibold text-gray-950">
@@ -771,7 +771,7 @@ function FloorActivityList({ items }: { items: FloorActivityStatistics[] }) {
             className="min-w-0 rounded-md bg-gray-50 p-3"
           >
             <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="min-w-0 font-semibold break-words text-gray-900">
+              <span className="min-w-0 font-semibold wrap-break-word text-gray-900">
                 {item.floor_number} поверх
               </span>
               <span className="shrink-0 text-gray-500">

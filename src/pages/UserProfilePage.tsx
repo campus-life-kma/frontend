@@ -839,7 +839,7 @@ function ProfileHeader({
                   </button>
                 </div>
               ) : (
-                <h1 className="max-w-full text-2xl leading-tight font-semibold break-words text-gray-950">
+                <h1 className="max-w-full text-2xl leading-tight font-semibold wrap-break-word text-gray-950">
                   {profile.display_name}
                 </h1>
               )}
@@ -872,10 +872,10 @@ function ProfileHeader({
               inputType="email"
               onSave={(value) => onSave({ email: value })}
             />
-            <p className="mt-2 text-sm font-medium break-words text-gray-700">
+            <p className="mt-2 text-sm font-medium wrap-break-word text-gray-700">
               {studyLine(profile)}
             </p>
-            <p className="mt-1 text-sm break-words text-gray-500">
+            <p className="mt-1 text-sm wrap-break-word text-gray-500">
               {locationLine(profile)}
             </p>
             <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
