@@ -37,6 +37,7 @@ export interface UserProfileEvent {
   title: string;
   status: string;
   start_time: string;
+  end_time: string;
   creator: UserOnMap;
   is_faculty_only: boolean;
   is_major_only: boolean;

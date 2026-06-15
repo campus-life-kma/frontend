@@ -166,11 +166,33 @@ function formatYearWord(year: number): string {
 function formatSocialStatus(status: string): string {
   const labels: Record<string, string> = {
     ACTIVE: 'Активний',
+    FINISHED: 'Завершено',
     COMPLETED: 'Виконано',
     DONE: 'Виконано',
     CANCELLED: 'Скасовано',
   };
   return labels[status] ?? status;
+}
+
+function isEventFinished(event: { end_time: string }): boolean {
+  return new Date(event.end_time).getTime() <= Date.now();
+}
+
+function isEventActionable(event: {
+  status: string;
+  end_time: string;
+}): boolean {
+  return event.status === 'ACTIVE' && !isEventFinished(event);
+}
+
+function formatEventStatus(event: {
+  status: string;
+  end_time: string;
+}): string {
+  if (event.status === 'ACTIVE' && isEventFinished(event)) {
+    return formatSocialStatus('FINISHED');
+  }
+  return formatSocialStatus(event.status);
 }
 
 function hasValue(value: string | number | null | undefined): boolean {
@@ -272,6 +294,9 @@ function canManageItem(
 }
 
 function canCancelSocialItem(item: FeedItem): boolean {
+  if (item.type === 'event') {
+    return isEventActionable(item);
+  }
   return item.status === 'ACTIVE';
 }
 
@@ -1655,6 +1680,7 @@ function ProfileDetailsModal({
   const canManage = item
     ? canManageItem(currentUserId, currentRole, currentFloorId, item)
     : false;
+  const eventActionable = event ? isEventActionable(event) : false;
   const canCancel = item ? canManage && canCancelSocialItem(item) : false;
   const canEdit = item
     ? item.creator.id === currentUserId && canCancelSocialItem(item)
@@ -1714,10 +1740,7 @@ function ProfileDetailsModal({
                   {event.description}
                 </p>
                 <dl className="grid gap-3 rounded-md border border-gray-200 p-3 text-sm sm:grid-cols-2">
-                  <InfoItem
-                    label="Статус"
-                    value={formatSocialStatus(event.status)}
-                  />
+                  <InfoItem label="Статус" value={formatEventStatus(event)} />
                   <InfoItem
                     label="Початок"
                     value={formatDateTime(event.start_time)}
@@ -1762,7 +1785,7 @@ function ProfileDetailsModal({
             )}
 
             <div className="flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-4">
-              {event && event.status === 'ACTIVE' && (
+              {event && eventActionable && (
                 <button
                   type="button"
                   onClick={() =>
@@ -1869,7 +1892,7 @@ function EventActivityCard({
         {formatDateTime(event.start_time)}
       </p>
       <p className="mt-2 text-xs font-medium text-violet-700">
-        {formatSocialStatus(event.status)}
+        {formatEventStatus(event)}
       </p>
       {(event.is_faculty_only || event.is_major_only) && (
         <p className="mt-2 text-xs font-medium text-blue-700">

@@ -88,6 +88,7 @@ function formatParticipantLimit(event: SocialEvent): string {
 function formatSocialStatus(status: string): string {
   const labels: Record<string, string> = {
     ACTIVE: 'Активний',
+    FINISHED: 'Завершено',
     COMPLETED: 'Виконано',
     DONE: 'Виконано',
     CANCELLED: 'Скасовано',

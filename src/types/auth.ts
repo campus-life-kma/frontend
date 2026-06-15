@@ -7,6 +7,8 @@ export interface User {
   room_id: string | null;
   floor_id: string | null;
   dormitory_id: string | null;
+  major_id: string | null;
+  faculty_id: string | null;
   photo: string | null;
 }
 
