@@ -1762,6 +1762,39 @@ function ProfileDetailsModal({
                     }
                   />
                 </dl>
+                {event.participants && (
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold text-gray-700">
+                        Учасники
+                      </h3>
+                      <span className="text-xs font-medium text-gray-400">
+                        {event.participants.length}
+                      </span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto rounded-md border border-gray-100 bg-gray-50/60 p-2">
+                      <div className="flex flex-wrap gap-2">
+                        {event.participants.map((participant) => (
+                          <Link
+                            key={participant.id}
+                            to={`/profile/${participant.id}`}
+                            className={
+                              'flex items-center gap-2 rounded-full bg-white px-2 py-1 text-xs ' +
+                              'shadow-sm transition hover:bg-blue-50 hover:text-blue-700'
+                            }
+                          >
+                            <UserAvatar
+                              name={participant.display_name}
+                              photo={participant.photo}
+                              size={22}
+                            />
+                            {participant.display_name}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 

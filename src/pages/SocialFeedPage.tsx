@@ -1544,9 +1544,13 @@ function DetailsModal({
                       <div className="max-h-48 overflow-y-auto rounded-md border border-gray-100 bg-gray-50/60 p-2">
                         <div className="flex flex-wrap gap-2">
                           {event.participants.map((participant) => (
-                            <span
+                            <Link
                               key={participant.id}
-                              className="flex items-center gap-2 rounded-full bg-white px-2 py-1 text-xs shadow-sm"
+                              to={`/profile/${participant.id}`}
+                              className={
+                                'flex items-center gap-2 rounded-full bg-white px-2 py-1 text-xs ' +
+                                'shadow-sm transition hover:bg-blue-50 hover:text-blue-700'
+                              }
                             >
                               <UserAvatar
                                 name={participant.display_name}
@@ -1554,7 +1558,7 @@ function DetailsModal({
                                 size={22}
                               />
                               {participant.display_name}
-                            </span>
+                            </Link>
                           ))}
                         </div>
                       </div>
