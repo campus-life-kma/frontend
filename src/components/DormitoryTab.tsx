@@ -102,8 +102,9 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
                     type="button"
                     onClick={() => setFloorToEdit(floor)}
                     className={[
-                      'rounded-md p-1.5 text-gray-400 opacity-0 transition-colors',
-                      'group-hover:opacity-100 hover:bg-blue-50 hover:text-blue-600',
+                      'rounded-md p-2 text-gray-500 opacity-100 transition-colors',
+                      'hover:bg-blue-50 hover:text-blue-600 focus:opacity-100',
+                      'sm:p-1.5 sm:text-gray-400 sm:opacity-0 sm:group-hover:opacity-100',
                       'focus:opacity-100',
                     ].join(' ')}
                     title="Редагувати мапу поверху"
@@ -116,8 +117,9 @@ const DormitoryTab: React.FC<DormitoryTabProps> = ({ dormitoryId }) => {
                     type="button"
                     onClick={() => setFloorToDelete(floor.id)}
                     className={[
-                      'rounded-md p-1.5 text-gray-400 opacity-0 transition-colors',
-                      'group-hover:opacity-100 hover:bg-red-50 hover:text-red-600',
+                      'rounded-md p-2 text-gray-500 opacity-100 transition-colors',
+                      'hover:bg-red-50 hover:text-red-600 focus:opacity-100',
+                      'sm:p-1.5 sm:text-gray-400 sm:opacity-0 sm:group-hover:opacity-100',
                       'focus:opacity-100',
                     ].join(' ')}
                     title="Видалити поверх"
